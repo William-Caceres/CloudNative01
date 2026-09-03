@@ -1,9 +1,12 @@
 package Hotel.usuario.controller;
 
-import Hotel.usuario.entity.Usuario;
+import Hotel.usuario.dto.UsuarioRequestDto;
+import Hotel.usuario.dto.UsuarioResponseDto;
 import Hotel.usuario.service.UsuarioService;
+import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,32 +26,35 @@ public class UsuarioController {
     private UsuarioService ser;
     
     @PostMapping("/register")
-    public Usuario uc_registrar(@RequestBody Usuario u){
-        return ser.u_registrar(u);
-    };
+    public UsuarioResponseDto uc_registrar(@Valid @RequestBody UsuarioRequestDto req){
+        return ser.u_registrar(req);
+    }
     
     @GetMapping("/login/{correo}/{contra}")
-    public Usuario uc_login(@PathVariable String correo, @PathVariable String contra){
+    public UsuarioResponseDto uc_login(@PathVariable String correo, @PathVariable String contra){
         return ser.u_login(correo, contra);
-    };
+    }
     
     @GetMapping("/get/{id}")
-    public Usuario uc_recuperar(@PathVariable Integer id){
+    public UsuarioResponseDto uc_recuperar(@PathVariable Integer id){
         return ser.u_recuperar(id);
-    };
+    }
     
     @GetMapping("/list")
-    public List<Usuario> uc_listar(){
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<UsuarioResponseDto> uc_listar(){
         return ser.u_listar();
-    };
+    }
     
-    @PutMapping("/put")
-    public Usuario uc_modificar(@RequestBody Usuario u){
-        return ser.u_modificar(u);
-    };
+    @PutMapping("/put/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public UsuarioResponseDto uc_modificar(@PathVariable Integer id, @Valid @RequestBody UsuarioRequestDto req){
+        return ser.u_modificar(id, req);
+    }
     
     @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public Boolean uc_retirar(@PathVariable Integer id){
         return ser.u_retirar(id);
-    };
+    }
 }
