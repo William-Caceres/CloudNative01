@@ -1,10 +1,14 @@
 package Hotel.servicio.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,11 +24,32 @@ public class Servicio {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     
+    @Column(nullable = false, length = 50)
     private String tipo_servicio;
+    @Column(nullable = false)
     private Integer precio;
-    private Integer n_habitacion;    
+    @Column(nullable = false)
+    private Integer n_habitacion;
     private Integer capacidad;
+    @Column(nullable = false)
     private Boolean disponible;
+    @Column(length = 20)
     private String nivel_servicio;
-    
+
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }
