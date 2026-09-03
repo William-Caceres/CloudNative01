@@ -1,9 +1,12 @@
 package Hotel.reserva.controller;
 
-import Hotel.reserva.entity.Reserva;
+import Hotel.reserva.dto.ReservaRequestDto;
+import Hotel.reserva.dto.ReservaResponseDto;
 import Hotel.reserva.service.ReservaService;
+import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,27 +26,30 @@ public class ReservaController {
     private ReservaService ser;
     
     @PostMapping("/post")
-    public Reserva rc_guardar(@RequestBody Reserva r){
-        return ser.r_guardar(r);
-    };
+    @PreAuthorize("hasRole('ADMIN')")
+    public ReservaResponseDto rc_guardar(@Valid @RequestBody ReservaRequestDto req){
+        return ser.r_guardar(req);
+    }
     
     @GetMapping("/get/{id}")
-    public Reserva rc_recuperar(@PathVariable Integer id){
+    public ReservaResponseDto rc_recuperar(@PathVariable Integer id){
         return ser.r_recuperar(id);
-    };
+    }
     
     @GetMapping("/list")
-    public List<Reserva> rc_listar(){
+    public List<ReservaResponseDto> rc_listar(){
         return ser.r_listar();
-    };
+    }
     
-    @PutMapping("/put")
-    public Reserva rc_modificar(@RequestBody Reserva r){
-        return ser.r_modificar(r);
-    };
+    @PutMapping("/put/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ReservaResponseDto rc_modificar(@PathVariable Integer id, @Valid @RequestBody ReservaRequestDto req){
+        return ser.r_modificar(id, req);
+    }
     
     @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public Boolean rc_eliminar(@PathVariable Integer id){
         return ser.r_eliminar(id);
-    };
+    }
 }
