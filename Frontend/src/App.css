@@ -1,0 +1,23 @@
+.div_style{
+  background-color: #930087;
+  color: #ffffff;
+  border: solid 1px #ffffff;
+  padding: 3rem;
+  margin: 5%;
+}
+.navbar_style{
+  background: #930087;
+  margin: 0;
+  padding: 8px;
+}
+.pad-0{
+  padding: 0 !important;
+  border-bottom: solid 1px #ffffff;
+}
+.nav_link_style{
+  color: #ffffff !important;
+}.nav_link_style:hover{
+  text-decoration: underline;
+}
+.force_c_white{color:#ffffff !important}
+.force_border{border: solid 1px #ffffff !important; border-radius: 1px !important;}
