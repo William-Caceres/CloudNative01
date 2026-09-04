@@ -21,3 +21,17 @@
 }
 .force_c_white{color:#ffffff !important}
 .force_border{border: solid 1px #ffffff !important; border-radius: 1px !important;}
+
+.center_card{
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

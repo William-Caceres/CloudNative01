@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 
 import Navbar from './pages/Navbar'
 import Inicio from './pages/Inicio'
@@ -12,6 +12,8 @@ import Reservas_detalle from './pages/Reservas_detalle'
 import Panel_admin from './pages/Panel_admin'
 
 import "./App.css"
+import ProtectedRoute from './components/ProtectedRoute'
+import UnProtectedRoute from './components/UnProtectedRoute'
 
 function App(){
   
@@ -21,13 +23,13 @@ function App(){
         <Routes>
           <Route path="/" element={<Inicio/>}/>
           <Route path="/registro" element={<Registrarse/>}/>
-          <Route path="/login" element={<Login/>}/>
-          <Route path="/mi_cuenta" element={<Mi_cuenta/>}/>
+          <Route path="/login" element={<UnProtectedRoute><Login/></UnProtectedRoute>}/>
+          <Route path="/mi_cuenta" element={<ProtectedRoute><Mi_cuenta/></ProtectedRoute>}/>
           <Route path="/servicios" element={<Servicios/>}/>
           <Route path="/servicios/detalle" element={<Servicios_detalle/>}/>
-          <Route path="/mis_reservas" element={<Reservas/>}/>
-          <Route path="/mis_reservas/detalle" element={<Reservas_detalle/>}/>
-          <Route path="/PanelAdministradores" element={<Panel_admin/>}/>
+          <Route path="/mis_reservas" element={<ProtectedRoute><Reservas/></ProtectedRoute>}/>
+          <Route path="/mis_reservas/detalle" element={<ProtectedRoute><Reservas_detalle/></ProtectedRoute>}/>
+          <Route path="/PanelAdministradores" element={<ProtectedRoute><Panel_admin/></ProtectedRoute>}/>
         </Routes>
     </>
   )

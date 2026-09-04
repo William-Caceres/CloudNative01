@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useIsAuthenticated, useMsal } from '@azure/msal-react'
 
 function Navbar() {
 
-    const navegar = useNavigate()
+    const isAuthenticated = useIsAuthenticated()
 
+    const {instance} = useMsal()
+    
+    const cerrarSesion = () => {
+        instance.logoutRedirect()
+    }
+    
     return(
         <>
         <nav className="navbar navbar-expand-lg bg-body-tertiary pad-0">
@@ -21,20 +28,31 @@ function Navbar() {
                             <Link className="nav-link active nav_link_style" aria-current="page" to="/">Inicio</Link>
                         </li>
                         <li className="nav-item">
-                            <Link className="nav-link active nav_link_style" aria-current="page" to="/registro">Registrarme</Link>
-                        </li>
-                        <li className="nav-item">
-                            <Link className="nav-link active nav_link_style" aria-current="page" to="/login">Iniciar sesion</Link>
-                        </li>
-                        <li className="nav-item">
-                            <Link className="nav-link active nav_link_style" aria-current="page" to="/mi_cuenta">Mi cuenta</Link>
-                        </li>
-                        <li className="nav-item">
                             <Link className="nav-link active nav_link_style" aria-current="page" to="/servicios">Servicios disponibles</Link>
                         </li>
-                        <li className="nav-item">
-                            <Link className="nav-link active nav_link_style" aria-current="page" to="/reservas">Mis Reservas</Link>
-                        </li>
+                        {isAuthenticated ? (
+                            <>
+                            <li className="nav-item">
+                                <Link className="nav-link active nav_link_style" aria-current="page" to="/reservas">Mis Reservas</Link>
+                            </li>
+                            <li className="nav-item">
+                                <Link className="nav-link active nav_link_style" aria-current="page" to="/mi_cuenta">Mi cuenta</Link>
+                            </li>
+                            <li className="nav-item">
+                                <Link className="nav-link active nav_link_style" aria-current="page" to="#" onClick={cerrarSesion}>Cerrar sesion</Link>
+                            </li>
+                            </>
+                        ) : (
+                            <>
+                            <li className="nav-item">
+                                <Link className="nav-link active nav_link_style" aria-current="page" to="/registro">Registrarme</Link>
+                            </li>
+                            <li className="nav-item">
+                                <Link className="nav-link active nav_link_style" aria-current="page" to="/login">Iniciar sesion</Link>
+                            </li>
+                            </>
+                        )}
+                        
                     </ul>
                 </div>
 
