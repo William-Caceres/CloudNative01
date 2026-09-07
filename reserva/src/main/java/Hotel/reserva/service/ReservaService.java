@@ -18,11 +18,12 @@ public class ReservaService {
 
     public ReservaResponseDto r_guardar(ReservaRequestDto req){
         Reserva r = new Reserva();
-        r.setF_reserva(req.getF_reserva());
-        r.setF_termino(req.getF_termino());
-        r.setTipo_reserva(req.getTipo_reserva());
-        r.setC_personas(req.getC_personas());
-        r.setValor_final(req.getValor_final());
+        r.setIdUsuario(req.getIdUsuario());
+        r.setFechaReserva(req.getFechaReserva());
+        r.setFechaTermino(req.getFechaTermino());
+        r.setTipoReserva(req.getTipoReserva());
+        r.setCantidadPersonas(req.getCantidadPersonas());
+        r.setValorFinal(req.getValorFinal());
         return toResponse(rep.save(r));
     }
     
@@ -38,16 +39,23 @@ public class ReservaService {
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
+
+    public List<ReservaResponseDto> r_listar_por_usuario(Integer idUsuario){
+        return rep.findByIdUsuario(idUsuario).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
     
     public ReservaResponseDto r_modificar(Integer id, ReservaRequestDto req){
         Reserva r_mod = rep.findById(id)
                 .orElseThrow(() -> new EntidadNoEncontradaException("RES-001",
                         "No existe una reserva con id: " + id));
-        r_mod.setF_reserva(req.getF_reserva());
-        r_mod.setF_termino(req.getF_termino());
-        r_mod.setTipo_reserva(req.getTipo_reserva());
-        r_mod.setC_personas(req.getC_personas());
-        r_mod.setValor_final(req.getValor_final());
+        r_mod.setIdUsuario(req.getIdUsuario());
+        r_mod.setFechaReserva(req.getFechaReserva());
+        r_mod.setFechaTermino(req.getFechaTermino());
+        r_mod.setTipoReserva(req.getTipoReserva());
+        r_mod.setCantidadPersonas(req.getCantidadPersonas());
+        r_mod.setValorFinal(req.getValorFinal());
         return toResponse(rep.save(r_mod));
     }
     
@@ -63,11 +71,12 @@ public class ReservaService {
     private ReservaResponseDto toResponse(Reserva r) {
         return ReservaResponseDto.builder()
                 .id(r.getId())
-                .f_reserva(r.getF_reserva())
-                .f_termino(r.getF_termino())
-                .tipo_reserva(r.getTipo_reserva())
-                .c_personas(r.getC_personas())
-                .valor_final(r.getValor_final())
+                .idUsuario(r.getIdUsuario())
+                .fechaReserva(r.getFechaReserva())
+                .fechaTermino(r.getFechaTermino())
+                .tipoReserva(r.getTipoReserva())
+                .cantidadPersonas(r.getCantidadPersonas())
+                .valorFinal(r.getValorFinal())
                 .build();
     }
 }

@@ -23,18 +23,22 @@ public class Servicio {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    
+
     @Column(nullable = false, length = 50)
-    private String tipo_servicio;
+    private String nombre;
+    @Column(length = 150)
+    private String descripcion;
+    @Column(nullable = false, length = 50)
+    private String tipoServicio;
     @Column(nullable = false)
     private Integer precio;
     @Column(nullable = false)
-    private Integer n_habitacion;
+    private Integer numHabitacion;
     private Integer capacidad;
     @Column(nullable = false)
     private Boolean disponible;
     @Column(length = 20)
-    private String nivel_servicio;
+    private String nivelServicio;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

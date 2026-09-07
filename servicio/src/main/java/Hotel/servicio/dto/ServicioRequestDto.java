@@ -14,8 +14,13 @@ import lombok.NoArgsConstructor;
 @Builder
 public class ServicioRequestDto {
 
+    @NotBlank(message = "El nombre es obligatorio")
+    private String nombre;
+
+    private String descripcion;
+
     @NotBlank(message = "El tipo de servicio es obligatorio")
-    private String tipo_servicio;
+    private String tipoServicio;
 
     @NotNull(message = "El precio es obligatorio")
     @Positive(message = "El precio debe ser positivo")
@@ -23,7 +28,7 @@ public class ServicioRequestDto {
 
     @NotNull(message = "El numero de habitacion es obligatorio")
     @Positive(message = "El numero de habitacion debe ser positivo")
-    private Integer n_habitacion;
+    private Integer numHabitacion;
 
     @NotNull(message = "La capacidad es obligatoria")
     @Positive(message = "La capacidad debe ser positiva")
@@ -33,5 +38,5 @@ public class ServicioRequestDto {
     private Boolean disponible;
 
     @NotBlank(message = "El nivel de servicio es obligatorio")
-    private String nivel_servicio;
+    private String nivelServicio;
 }

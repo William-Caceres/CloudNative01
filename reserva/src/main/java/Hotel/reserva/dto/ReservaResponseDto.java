@@ -12,9 +12,10 @@ import lombok.NoArgsConstructor;
 public class ReservaResponseDto {
 
     private Integer id;
-    private String f_reserva;
-    private String f_termino;
-    private String tipo_reserva;
-    private Integer c_personas;
-    private Integer valor_final;
+    private Integer idUsuario;
+    private String fechaReserva;
+    private String fechaTermino;
+    private String tipoReserva;
+    private Integer cantidadPersonas;
+    private Integer valorFinal;
 }

@@ -34,12 +34,14 @@ class ServicioServiceTest {
     @BeforeEach
     void setUp() {
         request = ServicioRequestDto.builder()
-                .tipo_servicio("HABITACION")
+                .nombre("Suite Premium")
+                .descripcion("Suite con vista al mar")
+                .tipoServicio("HABITACION")
                 .precio(50000)
-                .n_habitacion(101)
+                .numHabitacion(101)
                 .capacidad(2)
                 .disponible(true)
-                .nivel_servicio("STANDARD")
+                .nivelServicio("STANDARD")
                 .build();
     }
 
@@ -52,7 +54,8 @@ class ServicioServiceTest {
         ServicioResponseDto resultado = service.s_guardar(request);
 
         assertEquals(1, resultado.getId());
-        assertEquals("HABITACION", resultado.getTipo_servicio());
+        assertEquals("Suite Premium", resultado.getNombre());
+        assertEquals("HABITACION", resultado.getTipoServicio());
         verify(rep).save(any(Servicio.class));
     }
 
@@ -87,12 +90,14 @@ class ServicioServiceTest {
 
     private Servicio toEntity(ServicioRequestDto req) {
         Servicio s = new Servicio();
-        s.setTipo_servicio(req.getTipo_servicio());
+        s.setNombre(req.getNombre());
+        s.setDescripcion(req.getDescripcion());
+        s.setTipoServicio(req.getTipoServicio());
         s.setPrecio(req.getPrecio());
-        s.setN_habitacion(req.getN_habitacion());
+        s.setNumHabitacion(req.getNumHabitacion());
         s.setCapacidad(req.getCapacidad());
         s.setDisponible(req.getDisponible());
-        s.setNivel_servicio(req.getNivel_servicio());
+        s.setNivelServicio(req.getNivelServicio());
         return s;
     }
 }

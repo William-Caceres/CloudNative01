@@ -14,20 +14,24 @@ import lombok.NoArgsConstructor;
 @Builder
 public class ReservaRequestDto {
 
+    @NotNull(message = "El id de usuario es obligatorio")
+    @Positive(message = "El id de usuario debe ser positivo")
+    private Integer idUsuario;
+
     @NotBlank(message = "La fecha de reserva es obligatoria")
-    private String f_reserva;
+    private String fechaReserva;
 
     @NotBlank(message = "La fecha de termino es obligatoria")
-    private String f_termino;
+    private String fechaTermino;
 
     @NotBlank(message = "El tipo de reserva es obligatorio")
-    private String tipo_reserva;
+    private String tipoReserva;
 
     @NotNull(message = "La cantidad de personas es obligatoria")
     @Positive(message = "La cantidad de personas debe ser positiva")
-    private Integer c_personas;
+    private Integer cantidadPersonas;
 
     @NotNull(message = "El valor final es obligatorio")
     @Positive(message = "El valor final debe ser positivo")
-    private Integer valor_final;
+    private Integer valorFinal;
 }

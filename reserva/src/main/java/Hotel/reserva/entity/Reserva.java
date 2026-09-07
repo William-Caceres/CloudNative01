@@ -25,15 +25,17 @@ public class Reserva {
     private Integer id;
     
     @Column(nullable = false)
-    private String f_reserva;
+    private Integer idUsuario;
     @Column(nullable = false)
-    private String f_termino;
+    private String fechaReserva;
+    @Column(nullable = false)
+    private String fechaTermino;
     @Column(nullable = false, length = 50)
-    private String tipo_reserva;
+    private String tipoReserva;
     @Column(nullable = false)
-    private Integer c_personas;
+    private Integer cantidadPersonas;
     @Column(nullable = false)
-    private Integer valor_final;
+    private Integer valorFinal;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

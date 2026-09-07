@@ -41,6 +41,11 @@ public class ReservaController {
         return ser.r_listar();
     }
     
+    @GetMapping("/usuario/{idUsuario}")
+    public List<ReservaResponseDto> rc_listar_por_usuario(@PathVariable Integer idUsuario){
+        return ser.r_listar_por_usuario(idUsuario);
+    }
+    
     @PutMapping("/put/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ReservaResponseDto rc_modificar(@PathVariable Integer id, @Valid @RequestBody ReservaRequestDto req){

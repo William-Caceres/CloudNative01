@@ -34,11 +34,12 @@ class ReservaServiceTest {
     @BeforeEach
     void setUp() {
         request = ReservaRequestDto.builder()
-                .f_reserva("2026-09-01")
-                .f_termino("2026-09-05")
-                .tipo_reserva("STANDARD")
-                .c_personas(2)
-                .valor_final(200000)
+                .idUsuario(3)
+                .fechaReserva("2026-09-01")
+                .fechaTermino("2026-09-05")
+                .tipoReserva("STANDARD")
+                .cantidadPersonas(2)
+                .valorFinal(200000)
                 .build();
     }
 
@@ -51,7 +52,8 @@ class ReservaServiceTest {
         ReservaResponseDto resultado = service.r_guardar(request);
 
         assertEquals(1, resultado.getId());
-        assertEquals("STANDARD", resultado.getTipo_reserva());
+        assertEquals(3, resultado.getIdUsuario());
+        assertEquals("STANDARD", resultado.getTipoReserva());
         verify(rep).save(any(Reserva.class));
     }
 
@@ -86,11 +88,12 @@ class ReservaServiceTest {
 
     private Reserva toEntity(ReservaRequestDto req) {
         Reserva r = new Reserva();
-        r.setF_reserva(req.getF_reserva());
-        r.setF_termino(req.getF_termino());
-        r.setTipo_reserva(req.getTipo_reserva());
-        r.setC_personas(req.getC_personas());
-        r.setValor_final(req.getValor_final());
+        r.setIdUsuario(req.getIdUsuario());
+        r.setFechaReserva(req.getFechaReserva());
+        r.setFechaTermino(req.getFechaTermino());
+        r.setTipoReserva(req.getTipoReserva());
+        r.setCantidadPersonas(req.getCantidadPersonas());
+        r.setValorFinal(req.getValorFinal());
         return r;
     }
 }

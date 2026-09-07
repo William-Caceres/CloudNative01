@@ -18,12 +18,14 @@ public class ServicioService {
 
     public ServicioResponseDto s_guardar(ServicioRequestDto req){
         Servicio s = new Servicio();
-        s.setTipo_servicio(req.getTipo_servicio());
+        s.setNombre(req.getNombre());
+        s.setDescripcion(req.getDescripcion());
+        s.setTipoServicio(req.getTipoServicio());
         s.setPrecio(req.getPrecio());
-        s.setN_habitacion(req.getN_habitacion());
+        s.setNumHabitacion(req.getNumHabitacion());
         s.setCapacidad(req.getCapacidad());
         s.setDisponible(req.getDisponible());
-        s.setNivel_servicio(req.getNivel_servicio());
+        s.setNivelServicio(req.getNivelServicio());
         return toResponse(rep.save(s));
     }
     
@@ -44,12 +46,14 @@ public class ServicioService {
         Servicio s_mod = rep.findById(id)
                 .orElseThrow(() -> new EntidadNoEncontradaException("SER-001",
                         "No existe un servicio con id: " + id));
-        s_mod.setTipo_servicio(req.getTipo_servicio());
+        s_mod.setNombre(req.getNombre());
+        s_mod.setDescripcion(req.getDescripcion());
+        s_mod.setTipoServicio(req.getTipoServicio());
         s_mod.setPrecio(req.getPrecio());
-        s_mod.setN_habitacion(req.getN_habitacion());
+        s_mod.setNumHabitacion(req.getNumHabitacion());
         s_mod.setCapacidad(req.getCapacidad());
         s_mod.setDisponible(req.getDisponible());
-        s_mod.setNivel_servicio(req.getNivel_servicio());
+        s_mod.setNivelServicio(req.getNivelServicio());
         return toResponse(rep.save(s_mod));
     }
     
@@ -65,12 +69,14 @@ public class ServicioService {
     private ServicioResponseDto toResponse(Servicio s) {
         return ServicioResponseDto.builder()
                 .id(s.getId())
-                .tipo_servicio(s.getTipo_servicio())
+                .nombre(s.getNombre())
+                .descripcion(s.getDescripcion())
+                .tipoServicio(s.getTipoServicio())
                 .precio(s.getPrecio())
-                .n_habitacion(s.getN_habitacion())
+                .numHabitacion(s.getNumHabitacion())
                 .capacidad(s.getCapacidad())
                 .disponible(s.getDisponible())
-                .nivel_servicio(s.getNivel_servicio())
+                .nivelServicio(s.getNivelServicio())
                 .build();
     }
 }
