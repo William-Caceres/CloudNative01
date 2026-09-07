@@ -3,6 +3,7 @@ package Hotel.servicio.service;
 import Hotel.servicio.entity.Servicio;
 import Hotel.servicio.repository.ServicioRepository;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +15,14 @@ public class ServicioService {
     
     public Servicio s_guardar(Servicio s){
         /*-LOGICA NEGOCIO-*/
+        List<Servicio> servicios = rep.findByNumHabitacion(s.getNumHabitacion());
+
+        for (Servicio s_for : servicios) {
+
+            if (s_for.getTipoServicio().equalsIgnoreCase(s.getTipoServicio())) {
+                return null;
+            }
+        }
         return rep.save(s);
     };
     
@@ -32,12 +41,14 @@ public class ServicioService {
         Servicio s_mod = rep.findById(s.getId()).orElse(null);
         
         if(s_mod!=null){
-            s_mod.setTipo_servicio(s.getTipo_servicio());
+            s_mod.setTipoServicio(s.getTipoServicio());
             s_mod.setPrecio(s.getPrecio());
-            s_mod.setN_habitacion(s.getN_habitacion());
+            s_mod.setNumHabitacion(s.getNumHabitacion());
             s_mod.setCapacidad(s.getCapacidad());
             s_mod.setDisponible(s.getDisponible());
-            s_mod.setNivel_servicio(s.getNivel_servicio());
+            s_mod.setNivelServicio(s.getNivelServicio());
+            s_mod.setNombre(s.getNombre());
+            s_mod.setDescripcion(s.getDescripcion());
                     
             return rep.save(s_mod);
         }else{

@@ -2,7 +2,7 @@ const API = "http://localhost:"
 
 export const getSMT = async(puerto, api, ruta) => {
     try {
-        const res = await fetch(`${API}${puerto}/${api}/v1/${ruta}`)
+        const res = await fetch(`${API}${puerto}/${api}/${ruta}`)
         if(!res.ok) throw new Error("ERROR al ejecutar: ", ruta)
         const data =  await res.json()
         return data
@@ -14,7 +14,7 @@ export const getSMT = async(puerto, api, ruta) => {
 
 export const getSMT_ID = async(puerto, api, ruta, id) => {
     try {
-        const res = await fetch(`${API}${puerto}/${api}/v1/${ruta}/${id}`)
+        const res = await fetch(`${API}${puerto}/${api}/${ruta}/${id}`)
         if(!res.ok) throw new Error("ERROR al ejecutar: ", ruta, ", ID: ", id)
         const data =  await res.json()
         return data
@@ -27,7 +27,7 @@ export const getSMT_ID = async(puerto, api, ruta, id) => {
 export const postSMT = async(puerto, api, ruta, cuerpo) => {
     try {
         console.log("ENVIANDO:", cuerpo)
-        const res  = await fetch(`${API}${puerto}/${api}/v1/${ruta}`, {
+        const res  = await fetch(`${API}${puerto}/${api}/${ruta}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -38,6 +38,7 @@ export const postSMT = async(puerto, api, ruta, cuerpo) => {
         const data = await res.json()
         return data
     } catch(e) {
+        console.error("Couldnt execute "+`${API}${puerto}/${api}/${ruta}`)
         console.error(e)
         return e
     }
@@ -46,7 +47,7 @@ export const postSMT = async(puerto, api, ruta, cuerpo) => {
 export const putSMT = async(puerto, api, ruta, cuerpo, id) => {
     try {
         console.log(cuerpo)
-        const res  = await fetch(`${API}${puerto}/${api}/v1/${ruta}/${id}`, {
+        const res  = await fetch(`${API}${puerto}/${api}/${ruta}/${id}`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json"
@@ -64,7 +65,7 @@ export const putSMT = async(puerto, api, ruta, cuerpo, id) => {
 
 export const deleteSMT = async(puerto, api, ruta, id) => {
     try {
-        const res = await fetch(`${API}${puerto}/${api}/v1/${ruta}/${id}`, {
+        const res = await fetch(`${API}${puerto}/${api}/${ruta}/${id}`, {
             method: "DELETE"
         })
         if(!res.ok) throw new Error("Error al ejecutar: ", ruta)

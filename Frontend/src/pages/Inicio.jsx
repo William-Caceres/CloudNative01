@@ -16,7 +16,7 @@ function Inicio() {
                 <p>Consulta tus reservas aqui:</p>
                 <button onClick={()=>navegar("mis_reservas")}>Mis reservas</button>
             </div>
-            <Formulario_servicios/>
+            
         </>
     )
 }

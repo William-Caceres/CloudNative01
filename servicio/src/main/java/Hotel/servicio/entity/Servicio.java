@@ -20,11 +20,13 @@ public class Servicio {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     
-    private String tipo_servicio;
+    private String tipoServicio;
     private Integer precio;
-    private Integer n_habitacion;    
+    private Integer numHabitacion;    
     private Integer capacidad;
     private Boolean disponible;
-    private String nivel_servicio;
+    private String nivelServicio;
+    private String nombre;
+    private String descripcion;
     
 }
