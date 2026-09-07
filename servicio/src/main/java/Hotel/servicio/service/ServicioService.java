@@ -38,9 +38,10 @@ public class ServicioService {
     
     public Servicio s_modificar(Servicio s){
         /*-LOGICA NEGOCIO-*/
-        Servicio s_mod = rep.findById(s.getId()).orElse(null);
+        Optional<Servicio> s_find = rep.findById(s.getId());
         
-        if(s_mod!=null){
+        if(s_find.isPresent()){
+            Servicio s_mod = s_find.get();
             s_mod.setTipoServicio(s.getTipoServicio());
             s_mod.setPrecio(s.getPrecio());
             s_mod.setNumHabitacion(s.getNumHabitacion());

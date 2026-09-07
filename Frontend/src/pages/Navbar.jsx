@@ -41,6 +41,9 @@ function Navbar() {
                             <li className="nav-item">
                                 <Link className="nav-link active nav_link_style" aria-current="page" to="#" onClick={cerrarSesion}>Cerrar sesion</Link>
                             </li>
+                            <li className="nav-item">
+                                <Link className="nav-link active nav_link_style" aria-current="page" to="/PanelAdministradores">Panel admin</Link>
+                            </li>
                             </>
                         ) : (
                             <>

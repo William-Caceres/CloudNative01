@@ -14,7 +14,7 @@ function Formulario_servicios({show}){
     
     const registrarServicio = async() => {
 
-        if(precio>0&&capacidad>0&&n_habitacion>0){
+        if(precio>0&&capacidad>0&&n_habitacion>0&&t_servicio!=""&&nivel_s!=""){
             const servicio = {
                 tipoServicio: t_servicio,
                 precio: precio,
@@ -37,8 +37,9 @@ function Formulario_servicios({show}){
 
     return(
         <>
+        <div className="card_black_bg">
         <div className="center_card m-0">
-            <form action="" className="div_style forms_mwidth" onSubmit={()=>registrarServicio()}>
+            <form action="" className="div_style form_card_size" onSubmit={()=>registrarServicio()}>
                 <p className="mb-1 mt-3">ID de servicio o habitacion:</p>
                 <input 
                     className="stuff_mwidth" type="number" required 
@@ -47,12 +48,14 @@ function Formulario_servicios({show}){
                 />
                 <p className="mb-1 mt-3">Tipo de servicio:</p>
                 <select value={t_servicio} onChange={(e)=>setT_servicio(e.target.value)}>
+                    <option value="" disabled defaultValue={""} hidden>Seleccione tipo de servicio</option>
                     <option value="habitacion">Habitacion</option>
                     <option value="comida">Comida</option>
                     <option value="recreativo">Recreativo</option>
                 </select>
                 <p className="mb-1 mt-3">Nivel del servicio:</p>
                 <select value={nivel_s} onChange={(e)=>setNivel_s(e.target.value)}>
+                    <option value="" disabled defaultValue={""} hidden>Seleccione nivel de servicio</option>
                     <option value="invitado">Invitado</option>
                     <option value="miembro">Miembro</option>
                     <option value="VIP">VIP</option>
@@ -91,6 +94,7 @@ function Formulario_servicios({show}){
                 <button type="submit">Registrar</button>
                 <button type="button" onClick={()=>cerrarFormulario()}>Cerrar</button>
             </form>
+        </div>
         </div>
         </>
     )
