@@ -30,4 +30,15 @@ class SecurityConfigTest {
         assertTrue(authorities.contains("ROLE_ADMIN"));
         assertTrue(authorities.contains("ROLE_GERENTE"));
     }
+
+    @Test
+    void claimEntraAdminSeMapeaAROLE_ADMIN() {
+        AbstractAuthenticationToken token = config.jwtAuthenticationConverter()
+                .convert(jwtConRoles("Admin", "Cliente"));
+        var authorities = token.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+        assertTrue(authorities.contains("ROLE_ADMIN"));
+        assertTrue(authorities.contains("ROLE_CLIENTE"));
+    }
 }

@@ -56,7 +56,7 @@ public class SecurityConfig {
             List<String> roles = jwt.getClaimAsStringList("roles");
             if (roles != null) {
                 authorities.addAll(roles.stream()
-                        .map(r -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + r))
+                        .map(r -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + r.toUpperCase()))
                         .collect(Collectors.toList()));
             }
             return authorities;
