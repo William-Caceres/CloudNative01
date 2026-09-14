@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react"
-import { getSMT_ID } from "../utils/apiHelper"
+import { deleteSMT, getSMT_ID } from "../utils/apiHelper"
 import { useLocation, useNavigate } from "react-router-dom"
-import { useIsAuthenticated } from "@azure/msal-react"
+import { useIsAuthenticated, useMsal } from "@azure/msal-react"
 import Modificar_servicios from "./Modificar_servicios"
+import useAuthToken from "../hooks/useAuthToken"
+import Formulario_reservas from "./Formulario_reservas"
 
 function Tarjeta_servicios({id}){
+
+    const [showReserva, setShowReserva] = useState(false)
 
     const isAuthenticated = useIsAuthenticated()
     const location = useLocation()
@@ -14,6 +18,8 @@ function Tarjeta_servicios({id}){
     const [inAP, setInAP] = useState(false)
     const navegar = useNavigate()
 
+    const {token, loading, error} = useAuthToken()
+
     const setId = (id) => {
         localStorage.setItem("ID_S",id)
         navegar("/servicios/detalle")
@@ -22,22 +28,35 @@ function Tarjeta_servicios({id}){
         localStorage.setItem("ID_S",id)
         setShow(true)
     }
+    const eliminarServicio = async (id) => {
+        if(confirm("Desea eliminar este servicio del hotel?")){
+            const res = await deleteSMT("8082","api/v1/servicio","delete", id, token)
+            if(res){window.location.reload()}
+        }
+    }
+    const hacerReserva = () => {
+        localStorage.setItem("ID_S_reserva",id)
+        setShowReserva(true)
+    }
 
     useEffect(()=>{
-        
+
         if(location.pathname=="/PanelAdministradores"){setInAP(true)}
 
-        const obtenerServicio = async() => {
-            const res = await getSMT_ID("8082","api/v1/servicio","get",id)
-            if (res == null){
-                console.log("empty")
-            }else{
-                setServicio(res)
+        if (loading){return}
+        if (!token){return}
+
+        const obtenerServicioID = async () => {
+            try {
+                const res = await getSMT_ID("8082","api/v1/servicio","get", id, token)
+                setServicio(res)               
+            }catch(error){
+                console.error("ERROR: ",error) 
             }
         }
-        obtenerServicio()
+        obtenerServicioID()
 
-    },[])
+    },[token, loading])
 
     return(
         <>
@@ -50,8 +69,19 @@ function Tarjeta_servicios({id}){
                 <button className="mt-3" onClick={()=>setId(id)}>Ver detalles</button>
                 {isAuthenticated && 
                     <>
+                    <button className="mt-3" onClick={()=>hacerReserva()}>Hacer una reserva</button>
+                    <p></p>
+                    {showReserva &&
+                        <>
+                            <Formulario_reservas show={setShowReserva}/>
+                        </>
+                    }
                     {inAP &&
+                        <>
                         <button className="mt-3" onClick={()=>modServicio(id)}>Modificar</button>
+                        <button className="mt-3" onClick={()=>eliminarServicio(id)}>Eliminar</button>
+                        </>
+
                     }
                     {show &&
                         <>

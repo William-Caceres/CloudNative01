@@ -7,6 +7,7 @@ function Login() {
     const isAuthenticated = useIsAuthenticated()
 
     const iniciarSesion = () => {
+        
         instance.loginRedirect()
     }
 

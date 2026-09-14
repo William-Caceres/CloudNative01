@@ -23,6 +23,7 @@ public class Reserva {
     private String f_reserva;
     private String f_termino;
     private String tipo_reserva;
-    private Integer c_personas;
     private Integer valor_final;
+    private Integer id_usuario;
+    private Integer id_servicio;
 }

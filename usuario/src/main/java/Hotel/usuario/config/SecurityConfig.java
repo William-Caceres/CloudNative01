@@ -1,4 +1,4 @@
-package Hotel.servicio.config;
+package Hotel.usuario.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

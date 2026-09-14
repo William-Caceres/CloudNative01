@@ -6,7 +6,7 @@ function UnProtectedRoute({children}){
     const isAuthenticated = useIsAuthenticated()
 
     if(isAuthenticated){
-        return <Navigate to="/" replace/>
+        return <Navigate to="/home" replace/>
     }
     return children
 }

@@ -27,11 +27,6 @@ public class UsuarioController {
         return ser.u_registrar(u);
     };
     
-    @GetMapping("/login/{correo}/{contra}")
-    public Usuario uc_login(@PathVariable String correo, @PathVariable String contra){
-        return ser.u_login(correo, contra);
-    };
-    
     @GetMapping("/get/{id}")
     public Usuario uc_recuperar(@PathVariable Integer id){
         return ser.u_recuperar(id);

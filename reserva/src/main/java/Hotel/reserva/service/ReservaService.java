@@ -3,6 +3,7 @@ package Hotel.reserva.service;
 import Hotel.reserva.entity.Reserva;
 import Hotel.reserva.repository.ReservaRepository;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -29,13 +30,13 @@ public class ReservaService {
     
     public Reserva r_modificar(Reserva r){
         /*-LOGICA NEGOCIO-*/
-        Reserva r_mod = rep.findById(r.getId()).orElse(null);
+        Optional<Reserva> r_find = rep.findById(r.getId());
         
-        if(r_mod!=null){
+        if(r_find.isPresent()){
+            Reserva r_mod = r_find.get();
             r_mod.setF_reserva(r.getF_reserva());
             r_mod.setF_termino(r.getF_termino());
             r_mod.setTipo_reserva(r.getTipo_reserva());
-            r_mod.setC_personas(r.getC_personas());
             r_mod.setValor_final(r.getValor_final());
                     
             return rep.save(r_mod);

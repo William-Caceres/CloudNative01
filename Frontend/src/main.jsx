@@ -9,13 +9,19 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 
 import {MsalProvider} from "@azure/msal-react";
 import { msalInstance } from './utils/msal-config.ts'
+async function iniciarMsal(){
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <BrowserRouter>
-      <MsalProvider instance={msalInstance}>
-        <App />
-      </MsalProvider>
-    </BrowserRouter>
-  </StrictMode>,
-)
+  await msalInstance.initialize()
+  
+  createRoot(document.getElementById('root')).render(
+    <StrictMode>
+      <BrowserRouter>
+        <MsalProvider instance={msalInstance}>
+          <App />
+        </MsalProvider>
+      </BrowserRouter>
+    </StrictMode>,
+  )
+}
+iniciarMsal()
+

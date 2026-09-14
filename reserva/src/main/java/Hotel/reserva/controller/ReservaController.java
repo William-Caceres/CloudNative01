@@ -4,6 +4,7 @@ import Hotel.reserva.entity.Reserva;
 import Hotel.reserva.service.ReservaService;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,26 +24,31 @@ public class ReservaController {
     private ReservaService ser;
     
     @PostMapping("/post")
+    @PreAuthorize("hasAnyRole('client', 'admin')")
     public Reserva rc_guardar(@RequestBody Reserva r){
         return ser.r_guardar(r);
     };
     
     @GetMapping("/get/{id}")
+    @PreAuthorize("hasAnyRole('client', 'admin')")
     public Reserva rc_recuperar(@PathVariable Integer id){
         return ser.r_recuperar(id);
     };
     
     @GetMapping("/list")
+    @PreAuthorize("hasAnyRole('client', 'admin')")
     public List<Reserva> rc_listar(){
         return ser.r_listar();
     };
     
     @PutMapping("/put")
+    @PreAuthorize("hasAnyRole('admin')")
     public Reserva rc_modificar(@RequestBody Reserva r){
         return ser.r_modificar(r);
     };
     
     @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasAnyRole('client', 'admin')")
     public Boolean rc_eliminar(@PathVariable Integer id){
         return ser.r_eliminar(id);
     };

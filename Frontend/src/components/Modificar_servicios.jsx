@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { getSMT_ID, putSMT } from "../utils/apiHelper"
+import useAuthToken from "../hooks/useAuthToken"
 
 function Modificar_servicios({show}){
 
@@ -13,6 +14,8 @@ function Modificar_servicios({show}){
     const [nivel_s, setNivel_s]             = useState("")
     const [nombre, setNombre]               = useState("")
     const [desc, setDesc]                   = useState("")
+
+    const {token, loading, error} = useAuthToken()
     
     const modificarServicio = async() => {
         
@@ -39,8 +42,12 @@ function Modificar_servicios({show}){
     }
 
     useEffect(()=>{
+
+        if (loading){return}
+        if (!token){return}
+
         const getServicio = async() => {
-            const res = await getSMT_ID("8082","api/v1/servicio","get",localStorage.getItem("ID_S"))
+            const res = await getSMT_ID("8082","api/v1/servicio","get",localStorage.getItem("ID_S"),token)
             setT_servicio(res.tipoServicio)
             setPrecio(res.precio)
             setN_habitacion(res.numHabitacion)
@@ -52,7 +59,7 @@ function Modificar_servicios({show}){
         }
         getServicio()
 
-    },[])
+    },[token, loading])
 
     return(
         <>

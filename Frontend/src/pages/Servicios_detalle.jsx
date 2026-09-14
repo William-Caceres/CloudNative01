@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react"
 import { getSMT_ID } from "../utils/apiHelper"
 import { useNavigate } from "react-router-dom"
+import { useMsal } from "@azure/msal-react"
+import useAuthToken from "../hooks/useAuthToken"
 
 function Servicios_detalle() {
 
@@ -8,15 +10,24 @@ function Servicios_detalle() {
     const [id, setId] = useState(0)
     const navegar = useNavigate()
 
+    const {token, loading, error} = useAuthToken()
+
     useEffect(()=>{
 
-        const obtenerServicio = async() => {
-            const res = await getSMT_ID("8082","api/v1/servicio","get",localStorage.getItem("ID_S"))
-            setServicio(res)
-        }
-        obtenerServicio()
+        if (loading){return}
+        if (!token){return}
 
-    },[])
+        const obtenerServicioID = async () => {
+            try {
+                const res = await getSMT_ID("8082","api/v1/servicio","get", localStorage.getItem("ID_S"), token)
+                setServicio(res)               
+            }catch(error){
+                console.error("ERROR: ",error) 
+            }
+        }
+        obtenerServicioID()
+
+    },[token, loading])
 
     return(
         <>

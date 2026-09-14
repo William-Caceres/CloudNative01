@@ -21,12 +21,12 @@ function App(){
     <>
       <Navbar />
         <Routes>
-          <Route path="/" element={<Inicio/>}/>
+          <Route path="/home" element={<ProtectedRoute><Inicio/></ProtectedRoute>}/>
           <Route path="/registro" element={<Registrarse/>}/>
-          <Route path="/login" element={<UnProtectedRoute><Login/></UnProtectedRoute>}/>
+          <Route path="/" element={<UnProtectedRoute><Login/></UnProtectedRoute>}/>
           <Route path="/mi_cuenta" element={<ProtectedRoute><Mi_cuenta/></ProtectedRoute>}/>
-          <Route path="/servicios" element={<Servicios/>}/>
-          <Route path="/servicios/detalle" element={<Servicios_detalle/>}/>
+          <Route path="/servicios" element={<ProtectedRoute><Servicios/></ProtectedRoute>}/>
+          <Route path="/servicios/detalle" element={<ProtectedRoute><Servicios_detalle/></ProtectedRoute>}/>
           <Route path="/mis_reservas" element={<ProtectedRoute><Reservas/></ProtectedRoute>}/>
           <Route path="/mis_reservas/detalle" element={<ProtectedRoute><Reservas_detalle/></ProtectedRoute>}/>
           <Route path="/PanelAdministradores" element={<ProtectedRoute><Panel_admin/></ProtectedRoute>}/>

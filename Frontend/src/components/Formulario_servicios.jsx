@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { postSMT } from "../utils/apiHelper"
+import useAuthToken from "../hooks/useAuthToken"
 
 function Formulario_servicios({show}){
 
@@ -11,6 +12,8 @@ function Formulario_servicios({show}){
     const [nivel_s, setNivel_s]             = useState("")
     const [nombre, setNombre]               = useState("")
     const [desc, setDesc]                   = useState("")
+
+    const {token} = useAuthToken()
     
     const registrarServicio = async() => {
 
@@ -25,10 +28,10 @@ function Formulario_servicios({show}){
                 nombre: nombre,
                 descripcion: desc
             }
-            postSMT("8082", "api/v1/servicio", "post", servicio)
+            postSMT("8082", "api/v1/servicio", "post", servicio, token)
             show(false)
         }else{
-            alert("Valores numericos deben ser mayor a 0")
+            alert("Todos los campos deben tener algun valor")
         }
     }
     const cerrarFormulario = () => {
