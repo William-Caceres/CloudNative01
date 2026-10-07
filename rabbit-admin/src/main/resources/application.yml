@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: rabbit-admin
+
+  # Seguridad OAuth2 Resource Server (JWT de Microsoft Entra ID)
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID:e34a6311-e69d-4a97-bedf-2ad7cc5455a0}/v2.0
+          audiences: 46cda96c-1ab7-42af-a838-5ad46de31226
+
+  # Conexion a RabbitMQ (en la nube se sobreescribe por variables de entorno)
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: /
+    listener:
+      simple:
+        # ACK manual: el consumidor confirma o deriva a DLQ segun el resultado
+        acknowledge-mode: manual
+        prefetch: 1
+
+server:
+  port: ${SERVER_PORT:8085}
+
+# Nombres centralizados de la mensajeria: en el codigo solo se referencian estas llaves
+hotel:
+  mensajeria:
+    exchanges:
+      topic: hotel.topic
+      direct: hotel.direct
+      dlx: hotel.dlx
+    colas:
+      notificaciones: notificaciones.queue
+      tickets: tickets.queue
+      documentos: documentos.queue
+    dlq:
+      notificaciones: notificaciones.dlq
+      tickets: tickets.dlq
+      documentos: documentos.dlq
+    routing:
+      reservaTodos: reserva.*
+      reservaCreada: reserva.creada
+      servicioTodos: servicio.*
+      ticketDirecto: ticket.generar
