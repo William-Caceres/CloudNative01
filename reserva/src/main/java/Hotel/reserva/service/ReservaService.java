@@ -2,6 +2,7 @@ package Hotel.reserva.service;
 
 import Hotel.reserva.entity.Reserva;
 import Hotel.reserva.exception.EntidadNoEncontradaException;
+import Hotel.reserva.messaging.producer.ReservaEventPublisher;
 import Hotel.reserva.repository.ReservaRepository;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,20 +10,25 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class ReservaService {
-    
+
     @Autowired
     private ReservaRepository rep;
 
+    @Autowired
+    private ReservaEventPublisher publisher;   // <-- NUEVO
+
     public Reserva r_guardar(Reserva req){
-        return rep.save(req);
+        Reserva guardada = rep.save(req);       // <-- lógica existente, intacta
+        publisher.publicarReservaCreada(guardada); // <-- NUEVO: dispara los 3 eventos
+        return guardada;
     }
-    
+
     public Reserva r_recuperar(Integer id){
         return rep.findById(id)
                 .orElseThrow(() -> new EntidadNoEncontradaException("RES-001",
                         "No existe una reserva con id: " + id));
     }
-    
+
     public List<Reserva> r_listar(){
         return rep.findAll();
     }
@@ -30,7 +36,7 @@ public class ReservaService {
     public List<Reserva> r_listar_por_usuario(Integer idUsuario){
         return rep.findByIdUsuario(idUsuario);
     }
-    
+
     public Reserva r_modificar(Integer id, Reserva req){
         Reserva r_mod = rep.findById(id)
                 .orElseThrow(() -> new EntidadNoEncontradaException("RES-001",
@@ -43,7 +49,7 @@ public class ReservaService {
         r_mod.setValorFinal(req.getValorFinal());
         return rep.save(r_mod);
     }
-    
+
     public Boolean r_eliminar(Integer id){
         if (!rep.existsById(id)) {
             throw new EntidadNoEncontradaException("RES-001",

@@ -1,0 +1,36 @@
+spring:
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:guest}
+    password: ${RABBIT_PASSWORD:guest}
+    listener:
+      simple:
+        acknowledge-mode: manual          # ACK explícito en cada consumidor
+        default-requeue-rejected: false   # un rechazo nunca vuelve a la cola: va a la DLQ
+        prefetch: 10
+
+# Fuente única de nombres de exchanges, colas y routing keys (ningún string suelto en el código)
+app:
+  rabbit:
+    delivery-limit: 3                     # reintentos máximos antes de dead-letter (colas quorum)
+    exchanges:
+      direct: hotel.direct
+      topic: hotel.topic
+      dlx: hotel.dlx
+    routing-keys:                         # claves concretas con las que se PUBLICA
+      ticket-generar: reserva.ticket.generar
+      documento-generar: reserva.documento.generar
+    queues:
+      notificaciones:
+        name: q.notificaciones
+        dlq: q.notificaciones.dlq
+        routing-key: notificacion.enviar  # binding en exchange direct
+      tickets:
+        name: q.tickets
+        dlq: q.tickets.dlq
+        routing-key: "reserva.ticket.*"   # binding en exchange topic
+      documentos:
+        name: q.documentos
+        dlq: q.documentos.dlq
+        routing-key: "reserva.documento.*"

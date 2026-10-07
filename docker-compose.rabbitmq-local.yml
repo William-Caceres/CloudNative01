@@ -1,0 +1,10 @@
+# RabbitMQ de UN nodo solo para desarrollo local (el clúster de 2 nodos lo arma la Persona A).
+# Uso: docker compose -f docker-compose.rabbitmq-local.yml up -d
+# Dashboard: http://localhost:15672  (guest / guest)
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: hotel-rabbitmq-local
+    ports:
+      - "5672:5672"
+      - "15672:15672"
