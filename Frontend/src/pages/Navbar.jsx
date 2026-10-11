@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useIsAuthenticated, useMsal } from '@azure/msal-react'
-import { getRoles } from '../auth/authUtils.js'
+import { getRoles } from '../auth/authUtils'
 
 function Navbar() {
 
@@ -14,7 +14,6 @@ function Navbar() {
     }
 
     return(
-        <>
         <nav className="navbar navbar-expand-lg bg-body-tertiary pad-0">
             <header className="container-fluid navbar_style">
 
@@ -45,7 +44,7 @@ function Navbar() {
                             </li>
                             )}
                             <li className="nav-item">
-                                <Link className="nav-link active nav_link_style" aria-current="page" to="/" onClick={cerrarSesion}>Cerrar sesion</Link>
+                                <Link className="nav-link active nav_link_style" aria-current="page" to="/" onClick={cerrarSesion}>Cerrar sesión</Link>
                             </li>
                             </>
                         ) : (
@@ -54,7 +53,7 @@ function Navbar() {
                                 <Link className="nav-link active nav_link_style" aria-current="page" to="/registro">Registrarme</Link>
                             </li>
                             <li className="nav-item">
-                                <Link className="nav-link active nav_link_style" aria-current="page" to="/login">Iniciar sesion</Link>
+                                <Link className="nav-link active nav_link_style" aria-current="page" to="/login">Iniciar sesión</Link>
                             </li>
                             </>
                         )}
@@ -63,7 +62,6 @@ function Navbar() {
 
             </header>
         </nav>
-        </>
     )
 }
 

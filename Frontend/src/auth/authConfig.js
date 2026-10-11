@@ -1,4 +1,4 @@
-import { environment } from "../utils/enviroment.ts";
+import { environment } from '../utils/environment'
 
 export const msalConfig = {
     auth: {

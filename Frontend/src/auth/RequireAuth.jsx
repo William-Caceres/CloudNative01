@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useMsal, useIsAuthenticated } from '@azure/msal-react'
-import { getRoles } from './authUtils.js'
+import { getRoles } from './authUtils'
 
 function RequireAuth({ roles, children }) {
     const { instance } = useMsal()

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react"
-import { obtenerServicio } from "../services/servicioService"
-import { useNavigate } from "react-router-dom"
+import { useEffect, useState } from 'react'
+import { obtenerServicio } from '../services/servicioService'
+import { useNavigate } from 'react-router-dom'
 
 function Servicios_detalle() {
 
@@ -10,14 +10,18 @@ function Servicios_detalle() {
     useEffect(()=>{
 
         const cargarServicio = async() => {
-            setServicio(await obtenerServicio(localStorage.getItem("ID_S")))
+            try {
+                setServicio(await obtenerServicio(localStorage.getItem("ID_S")))
+            } catch {
+                alert("No se pudo cargar el servicio")
+                navegar("/servicios")
+            }
         }
         cargarServicio()
 
-    },[])
+    },[navegar])
 
     return(
-        <>
         <article className="div_style">
             <h3>{servicio.nombre}</h3>
             <p>{servicio.descripcion}</p>
@@ -25,7 +29,7 @@ function Servicios_detalle() {
             <p><strong>Tipo de servicio: </strong>{servicio.tipoServicio}</p>
             <p><strong>Nivel de servicio: </strong>{servicio.nivelServicio}</p>
             {servicio.disponible ? (
-                <p>Esta disponible!</p>
+                <p>¡Está disponible!</p>
             ):(
                 <p>No disponible...</p>
             )}
@@ -33,7 +37,6 @@ function Servicios_detalle() {
             <p className="mb-1"><strong>Capacidad:</strong>{servicio.capacidad} persona(s)</p>
             <button className="mt-3" onClick={()=>navegar("/servicios")}>Volver</button>
         </article>
-        </>
     )
 }
 

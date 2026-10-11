@@ -1,19 +1,17 @@
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from 'react-router-dom'
 
 function Inicio() {
 
     const navegar = useNavigate()
 
     return(
-        <>
             <section className="p-4 div_style">
-                <h2>Bienvenido a Grand Hotel!</h2>
-                <p>Consulta nuestros distintos servicios aqui:</p>
+                <h2>¡Bienvenido a Grand Hotel!</h2>
+                <p>Consulta nuestros distintos servicios aquí:</p>
                 <button onClick={()=>navegar("servicios")}>Servicios</button>
-                <p>Consulta tus reservas aqui:</p>
+                <p>Consulta tus reservas aquí:</p>
                 <button onClick={()=>navegar("mis_reservas")}>Mis reservas</button>
             </section>
-        </>
     )
 }
 

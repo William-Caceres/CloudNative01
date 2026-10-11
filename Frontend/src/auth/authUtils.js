@@ -1,4 +1,4 @@
-import { loginRequest } from "./authConfig.js";
+import { loginRequest } from './authConfig'
 
 function accountFrom(instance) {
     const accounts = instance.getAllAccounts();
@@ -6,13 +6,13 @@ function accountFrom(instance) {
 }
 
 export function getRoles(account) {
-    if (!account || !account.idTokenClaims) return [];
+    if (!account?.idTokenClaims) return [];
     const roles = account.idTokenClaims.roles;
     return Array.isArray(roles) ? roles : [];
 }
 
 function decodePayload(token) {
-    const b = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const b = token.split(".")[1].replaceAll("-", "+").replaceAll("_", "/");
     return JSON.parse(atob(b + "=".repeat((4 - (b.length % 4)) % 4)));
 }
 

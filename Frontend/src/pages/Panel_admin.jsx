@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react"
-import Formulario_servicios from "../components/Formulario_servicios"
-import Tarjeta_servicios from "../components/Tarjeta_servicios"
-import { listarServicios } from "../services/servicioService"
+import { useEffect, useState } from 'react'
+import Formulario_servicios from '../components/Formulario_servicios'
+import Tarjeta_servicios from '../components/Tarjeta_servicios'
+import { listarServicios } from '../services/servicioService'
 
 function Panel_admin() {
 
