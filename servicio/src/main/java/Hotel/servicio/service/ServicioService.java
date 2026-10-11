@@ -2,31 +2,36 @@ package Hotel.servicio.service;
 
 import Hotel.servicio.entity.Servicio;
 import Hotel.servicio.exception.EntidadNoEncontradaException;
+import Hotel.servicio.messaging.ServicioEventPublisher;
 import Hotel.servicio.repository.ServicioRepository;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class ServicioService {
-    
-    @Autowired
-    private ServicioRepository rep;
+
+    private final ServicioRepository rep;
+
+    private final ServicioEventPublisher publisher;
 
     public Servicio s_guardar(Servicio req){
-        return rep.save(req);
+        Servicio guardado = rep.save(req);
+        publisher.publicarServicioActualizado(guardado);
+        return guardado;
     }
-    
+
     public Servicio s_recuperar(Integer id){
         return rep.findById(id)
                 .orElseThrow(() -> new EntidadNoEncontradaException("SER-001",
                         "No existe un servicio con id: " + id));
     }
-    
+
     public List<Servicio> s_listar(){
         return rep.findAll();
     }
-    
+
     public Servicio s_modificar(Integer id, Servicio req){
         Servicio s_mod = rep.findById(id)
                 .orElseThrow(() -> new EntidadNoEncontradaException("SER-001",
@@ -39,9 +44,11 @@ public class ServicioService {
         s_mod.setCapacidad(req.getCapacidad());
         s_mod.setDisponible(req.getDisponible());
         s_mod.setNivelServicio(req.getNivelServicio());
-        return rep.save(s_mod);
+        Servicio guardado = rep.save(s_mod);
+        publisher.publicarServicioActualizado(guardado);
+        return guardado;
     }
-    
+
     public Boolean s_eliminar(Integer id){
         if (!rep.existsById(id)) {
             throw new EntidadNoEncontradaException("SER-001",
