@@ -2,7 +2,7 @@
 
 Plataforma de gestión hotelera tipo microservicios: 3 microservicios de dominio, un BFF y el microservicio de mensajería `rabbit-admin`, todos en Spring Boot 4, que validan tokens JWT emitidos por Microsoft Entra ID, una base de datos MySQL y un frontend React 19 (lenguaje autorizado por el docente en reemplazo de Angular) que se autentica contra Entra ID con la librería MSAL.
 
-> **Estado actual:** núcleo completo y verificado (148 tests, mensajería con evidencia en vivo y frontend público vía el API Gateway). Placeholders heredados de EP1: `/registro`, `/mis_reservas` y `/mis_reservas/detalle`.
+> **Estado actual:** núcleo completo y verificado (148 tests, mensajería con evidencia en vivo y frontend público vía el API Gateway). Placeholder heredado de EP1: `/registro`.
 
 **Cómo cumple la rúbrica EP1:**
 - **Indicador 1 — MSAL (60%):** login/logout por redirección de Entra ID, guard de rutas por autenticación y rol (`RequireAuth`), inyección del `Bearer` token en cada petición HTTP, roles/scopes leídos desde los claims del JWT, vistas funcionales.
@@ -101,7 +101,7 @@ Cada microservicio lee su configuración por variables de entorno (todas con def
 | Infraestructura | VPC propia, 7 EC2, API Gateway con JWT, Elastic IP y CORS acotado (Terraform) |
 | Pruebas | 148 tests (JUnit, MockMvc, H2 y broker real) con cobertura JaCoCo |
 
-**Pendientes declarados:** las vistas `/registro`, `/mis_reservas` y `/mis_reservas/detalle` son placeholders de EP1. El microservicio `reserva` ya expone todos sus endpoints.
+**Pendiente declarado:** el alta de usuarios (`/registro`) es un placeholder de EP1. El microservicio `reserva` ya expone todos sus endpoints y `/mis_reservas` lista las reservas del usuario a través del BFF.
 
 ## Estructura del repositorio
 
@@ -249,7 +249,7 @@ Accesos locales una vez levantado el stack:
 | Cuenta | Rol | Acceso |
 |--------|-----|--------|
 | `admin.prueba@tenaninternoemihormazabal.onmicrosoft.com` | Admin | Panel de administración y CRUD de servicios |
-| `cliente.prueba@tenaninternoemihormazabal.onmicrosoft.com` | Cliente | Solo lectura de servicios (reservas pendientes) |
+| `cliente.prueba@tenaninternoemihormazabal.onmicrosoft.com` | Cliente | Solo lectura de servicios y de sus reservas |
 
 ### Navegación y roles
 
@@ -268,7 +268,7 @@ Accesos locales una vez levantado el stack:
 - Usuario autenticado que accede a `PanelAdministradores` sin rol `Admin` ve **"Acceso denegado"**.
 - Usuario no autenticado es redirigido a `/login` desde cualquier ruta protegida.
 - Los roles se leen del claim `roles` del JWT (no de la base de datos).
-- **Pendientes de implementar:** el alta de usuarios (`/registro`) y las vistas del flujo de reservas (`/mis_reservas`, `/mis_reservas/detalle`) — son placeholders vacíos. El microservicio **reserva ya expone todos sus endpoints** (ver sección API).
+- **Pendiente de implementar:** el alta de usuarios (`/registro`) — placeholder vacío (el alta la gestiona Entra ID). El microservicio **reserva ya expone todos sus endpoints** (ver sección API) y `/mis_reservas` lista las reservas del usuario a través del BFF.
 
 ### Flujo de uso (inicio a fin)
 
@@ -279,7 +279,7 @@ Accesos locales una vez levantado el stack:
 5. **Como Admin:** entrar a `/PanelAdministradores` y probar crear / editar / eliminar servicios.
 6. Cerrar sesión con el botón correspondiente.
 
-> El flujo **Cliente → reservar → `/mis_reservas`** está pendiente de implementar (ver nota de pendientes).
+> El flujo **Cliente → reservar → `/mis_reservas`**: la vista ya lista las reservas del usuario (vía BFF). El alta de reservas sigue siendo de administración (`POST /reserva` es ADMIN).
 
 ## API (endpoints)
 
@@ -423,7 +423,7 @@ Despliegue post-apply:
 3. Seeds de MySQL (`seeds/seed_usuarios.sql`, `seeds/seed_servicios.sql`) y `dist/` del frontend a `/var/www/grandhotel` + `sudo chmod -R a+rX /var/www/grandhotel`.
 4. **Orden de arranque en la nube:** broker → `rabbit-admin` (declara la topología) → `reserva`/`servicio` (productores) → resto de microservicios.
 
-> **CORS de los microservicios:** cada servicio limita sus orígenes con la variable `CORS_ORIGINS` (default `http://localhost:5173`, nunca queda abierto) y sus métodos y cabeceras permitidas son explícitos (`authorization`, `content-type`). Terraform la declara en el `user_data` de cada EC2 (los orígenes locales + la Elastic IP del frontend); en las instancias del lab está aplicada como drop-in de systemd (`/etc/systemd/system/cn-<svc>.service.d/10-cors.conf`) y se re-aplica sola si las EC2 se recrean.
+> **CORS de los microservicios:** cada servicio limita sus orígenes con la variable `CORS_ORIGINS` (default `http://localhost:5173`, nunca queda abierto) y sus métodos y cabeceras permitidas son explícitos (`authorization`, `content-type`). Terraform la declara en el `user_data` de cada EC2 (los orígenes locales + la Elastic IP del frontend). En las instancias del lab está aplicada como drop-in de systemd (`/etc/systemd/system/cn-<svc>.service.d/10-cors.conf`) y se re-aplica sola si las EC2 se recrean.
 
 Outputs: `frontend_public_ip`, `usuario_public_ip`, `usuario_private_ip`, `microservicios_public_ip`, `rabbit_public_ip`, `rabbit_admin_public_ip`, `api_url`, `rabbit_private_ip`, `db_password` y `rabbit_pass` (sensitive).
 
