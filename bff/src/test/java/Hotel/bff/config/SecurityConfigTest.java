@@ -38,7 +38,7 @@ class SecurityConfigTest {
     }
 
     @Test
-    void claimEntraAdminSeMapeaAROLE_ADMIN() {
+    void claimEntraAdminSeMapeaAROLEADMIN() {
         AbstractAuthenticationToken token = config.jwtAuthenticationConverter()
                 .convert(jwtConRoles("Admin", "Cliente"));
         var authorities = token.getAuthorities().stream()

@@ -12,6 +12,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,11 +28,11 @@ public class GlobalExceptionHandler {
         errors.put(ex.getName(), "Valor '" + ex.getValue() + "' con formato invalido");
 
         ApiError apiError = ApiError.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(LocalDateTime.now(ZoneId.systemDefault()))
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error("Validacion Fallida")
                 .code("VALID-002")
-                .message("Uno o mas parametros de la peticion no cumplen con el formato esperado")
+                .message("Uno o más parámetros de la petición no cumplen con el formato esperado")
                 .validations(errors)
                 .path(request.getDescription(false).replace("uri=", ""))
                 .build();
@@ -44,11 +45,11 @@ public class GlobalExceptionHandler {
         log.warn("Acceso denegado [URI: {}]", request.getDescription(false));
 
         ApiError apiError = ApiError.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(LocalDateTime.now(ZoneId.systemDefault()))
                 .status(HttpStatus.FORBIDDEN.value())
                 .error("Acceso Denegado")
                 .code("AUTH-003")
-                .message("No tiene permisos para realizar esta operacion")
+                .message("No tiene permisos para realizar esta operación")
                 .path(request.getDescription(false).replace("uri=", ""))
                 .build();
 
@@ -60,7 +61,7 @@ public class GlobalExceptionHandler {
         log.warn("Ruta no encontrada [URI: {}]", request.getDescription(false));
 
         ApiError apiError = ApiError.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(LocalDateTime.now(ZoneId.systemDefault()))
                 .status(HttpStatus.NOT_FOUND.value())
                 .error("No Encontrado")
                 .code("SYS-002")
@@ -76,11 +77,11 @@ public class GlobalExceptionHandler {
         log.warn("Metodo no permitido [URI: {}]", request.getDescription(false));
 
         ApiError apiError = ApiError.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(LocalDateTime.now(ZoneId.systemDefault()))
                 .status(HttpStatus.METHOD_NOT_ALLOWED.value())
                 .error("Metodo No Permitido")
                 .code("SYS-003")
-                .message("El metodo " + ex.getMethod() + " no esta permitido en esta ruta")
+                .message("El método " + ex.getMethod() + " no está permitido en esta ruta")
                 .path(request.getDescription(false).replace("uri=", ""))
                 .build();
 
@@ -92,11 +93,11 @@ public class GlobalExceptionHandler {
         log.error("Error no controlado en bff: {} [URI: {}]", ex.getMessage(), request.getDescription(false), ex);
 
         ApiError apiError = ApiError.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(LocalDateTime.now(ZoneId.systemDefault()))
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error("Error Interno")
                 .code("SYS-001")
-                .message("Ocurrio un error inesperado en el sistema")
+                .message("Ocurrió un error inesperado en el sistema")
                 .path(request.getDescription(false).replace("uri=", ""))
                 .build();
 

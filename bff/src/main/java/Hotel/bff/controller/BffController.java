@@ -2,7 +2,7 @@ package Hotel.bff.controller;
 
 import Hotel.bff.service.BffService;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -13,10 +13,10 @@ import org.springframework.web.bind.annotation.RestController;
 /** Endpoints publicos del BFF. */
 @RestController
 @RequestMapping("/api/v1/bff")
+@RequiredArgsConstructor
 public class BffController {
 
-    @Autowired
-    private BffService ser;
+    private final BffService ser;
 
     /** Agrega usuario + reservas + el catálogo de servicios. */
     @GetMapping("/dashboard")
