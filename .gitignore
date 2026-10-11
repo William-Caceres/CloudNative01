@@ -18,6 +18,10 @@ mvn-test.log
 mvn_err.txt
 mvn_out.txt
 *.bak
+*.tmp
+*.patch
+*.orig
+*.rej
 
 # Entorno (credenciales)
 .env
@@ -25,7 +29,7 @@ mvn_out.txt
 # Excepcion: .env.example se versiona como template
 !.env.example
 
-# Dependencias (frontend React futuro)
+# Dependencias (frontend)
 node_modules/
 **/node_modules/
 
@@ -56,5 +60,12 @@ Thumbs.db
 # Archivos de ayuda generados por Spring Initializr
 HELP.md
 
-# Reportes locales de validacion (pueden contener tokens)
-scripts/e2e_report.txt
+# Scripts locales
+scripts/*
+
+# Artefactos de analisis (Qodana y export de inspecciones del IDE)
+qodana.sarif.json
+qodana.yaml
+/index.html
+/script.js
+/styles.css
