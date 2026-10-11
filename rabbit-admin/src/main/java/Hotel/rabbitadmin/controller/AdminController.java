@@ -4,11 +4,12 @@ import Hotel.rabbitadmin.dto.BindingRequest;
 import Hotel.rabbitadmin.dto.ColaInfo;
 import Hotel.rabbitadmin.dto.ColaRequest;
 import Hotel.rabbitadmin.dto.ExchangeRequest;
+import Hotel.rabbitadmin.dto.PublicarRequest;
 import Hotel.rabbitadmin.service.RabbitAdminService;
 import jakarta.validation.Valid;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,10 +24,12 @@ import org.springframework.web.bind.annotation.RestController;
 /** API de administracion de RabbitMQ: colas, exchanges y bindings. */
 @RestController
 @RequestMapping("/api/v1/rabbit-admin")
+@RequiredArgsConstructor
 public class AdminController {
 
-    @Autowired
-    private RabbitAdminService ser;
+    private static final String MENSAJE = "mensaje";
+
+    private final RabbitAdminService ser;
 
     /** Crea una cola durable. Solo ADMIN. */
     @PostMapping("/queues")
@@ -34,7 +37,7 @@ public class AdminController {
     public ResponseEntity<Map<String, Object>> rac_crearCola(@Valid @RequestBody ColaRequest req) {
         ser.ra_crearCola(req.nombre());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(Map.of("mensaje", "Cola creada: " + req.nombre()));
+                .body(Map.of(MENSAJE, "Cola creada: " + req.nombre()));
     }
 
     /** Info de una cola: mensajes en espera y consumidores. */
@@ -53,7 +56,7 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> rac_eliminarCola(@PathVariable String nombre) {
         ser.ra_eliminarCola(nombre);
-        return ResponseEntity.ok(Map.of("mensaje", "Cola eliminada: " + nombre));
+        return ResponseEntity.ok(Map.of(MENSAJE, "Cola eliminada: " + nombre));
     }
 
     /** Purga (vacia) una cola. Solo ADMIN. */
@@ -61,7 +64,7 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> rac_purgarCola(@PathVariable String nombre) {
         int purgados = ser.ra_purgarCola(nombre);
-        return ResponseEntity.ok(Map.of("mensaje", "Cola purgada: " + nombre, "purgados", purgados));
+        return ResponseEntity.ok(Map.of(MENSAJE, "Cola purgada: " + nombre, "purgados", purgados));
     }
 
     /** Crea un exchange direct o topic. Solo ADMIN. */
@@ -70,7 +73,7 @@ public class AdminController {
     public ResponseEntity<Map<String, Object>> rac_crearExchange(@Valid @RequestBody ExchangeRequest req) {
         ser.ra_crearExchange(req.nombre(), req.tipo());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(Map.of("mensaje", "Exchange creado: " + req.nombre() + " (" + req.tipo() + ")"));
+                .body(Map.of(MENSAJE, "Exchange creado: " + req.nombre() + " (" + req.tipo() + ")"));
     }
 
     /** Elimina un exchange. Solo ADMIN. */
@@ -78,7 +81,7 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> rac_eliminarExchange(@PathVariable String nombre) {
         ser.ra_eliminarExchange(nombre);
-        return ResponseEntity.ok(Map.of("mensaje", "Exchange eliminado: " + nombre));
+        return ResponseEntity.ok(Map.of(MENSAJE, "Exchange eliminado: " + nombre));
     }
 
     /** Crea un binding entre cola y exchange. Solo ADMIN. */
@@ -87,6 +90,15 @@ public class AdminController {
     public ResponseEntity<Map<String, Object>> rac_crearBinding(@Valid @RequestBody BindingRequest req) {
         ser.ra_crearBinding(req.cola(), req.exchange(), req.routingKey());
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "mensaje", "Binding creado: " + req.cola() + " <- " + req.exchange() + " (" + req.routingKey() + ")"));
+                MENSAJE, "Binding creado: " + req.cola() + " <- " + req.exchange() + " (" + req.routingKey() + ")"));
+    }
+
+    /** Publica un mensaje de prueba (JSON) en un exchange. Solo ADMIN. */
+    @PostMapping("/publish")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> rac_publicar(@Valid @RequestBody PublicarRequest req) {
+        ser.ra_publicar(req.exchange(), req.routingKey(), req.payload());
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of(
+                MENSAJE, "Mensaje publicado en " + req.exchange() + " (" + req.routingKey() + ")"));
     }
 }

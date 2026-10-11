@@ -38,11 +38,13 @@ class RabbitMqConfigTest {
     }
 
     @Test
-    void dlqsSonDurables() {
+    void dlqsSonDurablesConRetencionDe24h() {
         List<Queue> dlqs = List.of(config.dlqNotificaciones(), config.dlqTickets(), config.dlqDocumentos());
         assertEquals(Set.of("notificaciones.dlq", "tickets.dlq", "documentos.dlq"),
                 dlqs.stream().map(Queue::getName).collect(Collectors.toSet()));
         assertTrue(dlqs.stream().allMatch(Queue::isDurable));
+        assertTrue(dlqs.stream().allMatch(q -> Long.valueOf(86400000L).equals(q.getArguments().get("x-message-ttl"))),
+                "cada DLQ debe retener 24 h (x-message-ttl)");
     }
 
     @Test

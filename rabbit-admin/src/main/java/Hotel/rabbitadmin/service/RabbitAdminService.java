@@ -2,27 +2,32 @@ package Hotel.rabbitadmin.service;
 
 import Hotel.rabbitadmin.dto.ColaInfo;
 import Hotel.rabbitadmin.exception.MensajeriaException;
+import java.nio.charset.StandardCharsets;
 import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.Exchange;
 import org.springframework.amqp.core.ExchangeBuilder;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.QueueInformation;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 /**
- * Operaciones de administracion de RabbitMQ encapsuladas: los controllers
- * llaman metodos de alto nivel y no conocen la libreria de RabbitMQ.
+ * Operaciones de RabbitMQ encapsuladas: los controllers no conocen la libreria.
  */
 @Service
 public class RabbitAdminService {
 
     private final RabbitAdmin rabbitAdmin;
+    private final RabbitTemplate rabbitTemplate;
 
-    public RabbitAdminService(RabbitAdmin rabbitAdmin) {
+    public RabbitAdminService(RabbitAdmin rabbitAdmin, RabbitTemplate rabbitTemplate) {
         this.rabbitAdmin = rabbitAdmin;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     public void ra_crearCola(String nombre) {
@@ -30,7 +35,7 @@ public class RabbitAdminService {
             rabbitAdmin.declareQueue(QueueBuilder.durable(nombre).build());
         } catch (AmqpException ex) {
             throw new MensajeriaException("MSJ-001", HttpStatus.CONFLICT,
-                    "No se pudo crear la cola " + nombre);
+                    "No se pudo crear la cola " + nombre, ex);
         }
     }
 
@@ -61,7 +66,7 @@ public class RabbitAdminService {
             rabbitAdmin.declareExchange(exchange);
         } catch (AmqpException ex) {
             throw new MensajeriaException("MSJ-003", HttpStatus.CONFLICT,
-                    "No se pudo crear el exchange " + nombre);
+                    "No se pudo crear el exchange " + nombre, ex);
         }
     }
 
@@ -76,7 +81,21 @@ public class RabbitAdminService {
             rabbitAdmin.declareBinding(new Binding(cola, Binding.DestinationType.QUEUE, exchange, routingKey, null));
         } catch (AmqpException ex) {
             throw new MensajeriaException("MSJ-005", HttpStatus.NOT_FOUND,
-                    "No se pudo crear el binding, verifica que el exchange " + exchange + " exista");
+                    "No se pudo crear el binding, verifica que el exchange " + exchange + " exista", ex);
+        }
+    }
+
+    // Publica un mensaje de prueba (JSON crudo) en el exchange indicado, desde /publish.
+    public void ra_publicar(String exchange, String routingKey, String payload) {
+        MessageProperties props = new MessageProperties();
+        props.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+        props.setContentEncoding(StandardCharsets.UTF_8.name());
+        Message mensaje = new Message(payload.getBytes(StandardCharsets.UTF_8), props);
+        try {
+            rabbitTemplate.send(exchange, routingKey, mensaje);
+        } catch (AmqpException ex) {
+            throw new MensajeriaException("MSJ-004", HttpStatus.BAD_REQUEST,
+                    "No se pudo publicar, verifica que el exchange " + exchange + " exista", ex);
         }
     }
 }

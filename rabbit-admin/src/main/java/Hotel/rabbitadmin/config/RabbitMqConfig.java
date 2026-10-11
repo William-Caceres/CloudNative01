@@ -9,6 +9,7 @@ import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
+import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
@@ -17,12 +18,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Topologia de mensajeria centralizada: 3 colas de dominio con su DLQ, un exchange
- * topic para eventos, un exchange direct para tareas puntuales y un DLX que recibe
- * los mensajes rechazados. Los nombres vienen de application.yml, no hay literales.
+ * Topologia centralizada: 3 colas con DLQ, exchange topic, exchange direct y DLX.
+ * Los nombres vienen de application.yml.
  */
 @Configuration
 public class RabbitMqConfig {
+
+    // Retencion de las DLQ: 24 h (politica de retencion de la guia 2.2.3)
+    private static final long DLQ_TTL_MS = 24L * 60 * 60 * 1000;
+    private static final String ARG_TTL = "x-message-ttl";
 
     @Value("${hotel.mensajeria.exchanges.topic}")
     private String exchangeTopic;
@@ -63,13 +67,19 @@ public class RabbitMqConfig {
     @Value("${hotel.mensajeria.routing.ticketDirecto}")
     private String routingTicketDirecto;
 
+    // Los eventos viajan como JSON y se convierten a Map en los @Payload
+    @Bean
+    public JacksonJsonMessageConverter jsonMessageConverter() {
+        return new JacksonJsonMessageConverter();
+    }
+
     // Administrador: declara y elimina recursos sobre el broker
     @Bean
     public RabbitAdmin rabbitAdmin(ConnectionFactory connectionFactory) {
         return new RabbitAdmin(connectionFactory);
     }
 
-    // Declara la topologia al arrancar: el dashboard muestra las colas sin esperar trafico
+    // Declara la topologia al arrancar (el dashboard la muestra sin trafico)
     @Bean
     @ConditionalOnProperty(name = "hotel.mensajeria.declarar-al-inicio", havingValue = "true", matchIfMissing = true)
     public ApplicationRunner declararTopologiaAlInicio(RabbitAdmin rabbitAdmin) {
@@ -111,17 +121,17 @@ public class RabbitMqConfig {
     // DLQs
     @Bean
     public Queue dlqNotificaciones() {
-        return QueueBuilder.durable(dlqNotificaciones).build();
+        return QueueBuilder.durable(dlqNotificaciones).withArgument(ARG_TTL, DLQ_TTL_MS).build();
     }
 
     @Bean
     public Queue dlqTickets() {
-        return QueueBuilder.durable(dlqTickets).build();
+        return QueueBuilder.durable(dlqTickets).withArgument(ARG_TTL, DLQ_TTL_MS).build();
     }
 
     @Bean
     public Queue dlqDocumentos() {
-        return QueueBuilder.durable(dlqDocumentos).build();
+        return QueueBuilder.durable(dlqDocumentos).withArgument(ARG_TTL, DLQ_TTL_MS).build();
     }
 
     private Queue colaConDlq(String cola, String dlq) {

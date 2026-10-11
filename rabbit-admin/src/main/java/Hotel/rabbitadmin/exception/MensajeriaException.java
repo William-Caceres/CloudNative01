@@ -14,6 +14,12 @@ public class MensajeriaException extends RuntimeException {
         this.status = status;
     }
 
+    public MensajeriaException(String code, HttpStatus status, String message, Throwable causa) {
+        super(message, causa);
+        this.code = code;
+        this.status = status;
+    }
+
     public String getCode() {
         return code;
     }

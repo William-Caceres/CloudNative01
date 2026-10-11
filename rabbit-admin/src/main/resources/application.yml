@@ -8,7 +8,7 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID:e34a6311-e69d-4a97-bedf-2ad7cc5455a0}/v2.0
-          audiences: 46cda96c-1ab7-42af-a838-5ad46de31226
+          audiences: ${AZURE_AUDIENCE:46cda96c-1ab7-42af-a838-5ad46de31226}
 
   # Conexion a RabbitMQ (en la nube se sobreescribe por variables de entorno)
   rabbitmq:
