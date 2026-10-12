@@ -101,7 +101,7 @@ Cada microservicio lee su configuración por variables de entorno (todas con def
 | Infraestructura | VPC propia, 7 EC2, API Gateway con JWT, Elastic IP y CORS acotado (Terraform) |
 | Pruebas | 148 tests (JUnit, MockMvc, H2 y broker real) con cobertura JaCoCo |
 
-**Pendiente declarado:** el alta de usuarios (`/registro`) es un placeholder de EP1. El microservicio `reserva` ya expone todos sus endpoints y `/mis_reservas` lista las reservas del usuario a través del BFF.
+**Pendiente declarado:** el alta de usuarios (`/registro`) es un placeholder de EP1 (sin enlace en la navegación). El microservicio `reserva` ya expone todos sus endpoints y `/mis_reservas` lista las reservas del usuario a través del BFF.
 
 ## Estructura del repositorio
 
@@ -110,7 +110,7 @@ Cada microservicio lee su configuración por variables de entorno (todas con def
 │   └── src/
 │       ├── auth/        # MSAL (authConfig, msalInstance, authUtils), interceptor HTTP y RequireAuth
 │       ├── components/  # Tarjeta_servicios, Formulario_servicios, Modificar_servicios
-│       ├── pages/       # Inicio, Login, Registrarse, Mi_cuenta, Servicios, Reservas, Panel_admin, etc.
+│       ├── pages/       # Inicio, Login, Registrarse, Mi_cuenta, Servicios (lista y detalle), Reservas (lista y detalle), Panel_admin, etc.
 │       ├── routes/      # RouterConfig (rutas protegidas por RequireAuth)
 │       ├── services/    # servicioService y bffService (consumo vía apiClient)
 │       └── utils/       # environment.ts (tenant, clientId, redirectUri y base URL del API Gateway)
@@ -144,19 +144,19 @@ docker compose up -d
 
 Levanta el contenedor `hotel-mysql` (usuario `root`, contraseña `root`) y, en la primera inicialización, ejecuta `db-init/init.sql` (crea `h_usuario`, `h_reserva` y `h_servicio`).
 
-> Las **tablas** no las crea MySQL: las crea Hibernate (`ddl-auto=update`) al arrancar cada microservicio. Por eso el **seed se aplica manualmente y siempre después del primer arranque** de los microservicios. Es idempotente:
->
-> ```bash
-> docker exec -i hotel-mysql mysql -uroot -proot < seeds/seed_usuarios.sql
-> docker exec -i hotel-mysql mysql -uroot -proot < seeds/seed_servicios.sql
-> ```
->
-> **En PowerShell (Windows)** la redirección `<` no existe, usa `cmd`:
->
-> ```powershell
-> cmd /c "docker exec -i hotel-mysql mysql -uroot -proot < seeds\seed_usuarios.sql"
-> cmd /c "docker exec -i hotel-mysql mysql -uroot -proot < seeds\seed_servicios.sql"
-> ```
+Las **tablas** no las crea MySQL: las crea Hibernate (`ddl-auto=update`) al arrancar cada microservicio. Por eso el **seed se aplica manualmente y siempre después del primer arranque** de los microservicios. Es idempotente:
+
+```bash
+docker exec -i hotel-mysql mysql -uroot -proot < seeds/seed_usuarios.sql
+docker exec -i hotel-mysql mysql -uroot -proot < seeds/seed_servicios.sql
+```
+
+**En PowerShell (Windows)** la redirección `<` no existe, usa `cmd`:
+
+```powershell
+cmd /c "docker exec -i hotel-mysql mysql -uroot -proot < seeds\seed_usuarios.sql"
+cmd /c "docker exec -i hotel-mysql mysql -uroot -proot < seeds\seed_servicios.sql"
+```
 
 ### 2. Microservicios
 
@@ -256,7 +256,7 @@ Accesos locales una vez levantado el stack:
 | Ruta | Vista | Requiere |
 |------|-------|----------|
 | `/` | Inicio | Público |
-| `/registro` | Registro | **Pendiente** — vista placeholder vacía |
+| `/registro` | Registro | **Pendiente** — vista placeholder vacía, sin enlace en la navegación |
 | `/login` | Iniciar / cerrar sesión | Público |
 | `/servicios` | Listado de servicios (desde BD) | Autenticado |
 | `/servicios/detalle` | Detalle de un servicio | Autenticado |
@@ -268,7 +268,7 @@ Accesos locales una vez levantado el stack:
 - Usuario autenticado que accede a `PanelAdministradores` sin rol `Admin` ve **"Acceso denegado"**.
 - Usuario no autenticado es redirigido a `/login` desde cualquier ruta protegida.
 - Los roles se leen del claim `roles` del JWT (no de la base de datos).
-- **Pendiente de implementar:** el alta de usuarios (`/registro`) — placeholder vacío (el alta la gestiona Entra ID). El microservicio **reserva ya expone todos sus endpoints** (ver sección API) y `/mis_reservas` lista las reservas del usuario a través del BFF.
+- **Pendiente de implementar:** el alta de usuarios (`/registro`) — placeholder vacío (el alta la gestiona Entra ID), que quedó sin enlace en la navegación. Su eliminación definitiva queda para la próxima entrega, porque la gestión de usuarios corresponde a Entra ID. El microservicio **reserva ya expone todos sus endpoints** (ver sección API) y `/mis_reservas` lista las reservas del usuario a través del BFF.
 
 ### Flujo de uso (inicio a fin)
 
@@ -431,24 +431,40 @@ Outputs: `frontend_public_ip`, `usuario_public_ip`, `usuario_private_ip`, `micro
 
 > **Despliegue limpio (gateway nuevo):** las EC2 `reserva`, `servicio` y `bff` reciben las 3 variables `MICROSERVICIOS_*_URL` con el `api_endpoint` generado por Terraform (user_data). Para el frontend, el build toma el gateway desde `environment.ts` o `VITE_API_BASE_URL` (ver `Frontend/.env.example`) — recompilar `dist/` si cambia. Tras subir el `dist/`, ejecutar `sudo chmod -R a+rX /var/www/grandhotel` para que nginx pueda leer los assets (el scp los deja con permisos restrictivos).
 
-> Si las EC2 se reinician cambian sus IPs públicas (salvo el frontend, que conserva su Elastic IP): correr `terraform apply` de nuevo para refrescar las integrations. En AWS Academy el lab se corta a las 4 horas y detiene las EC2, así que al volver hay que arrancarlas de nuevo. Tras la demo: `terraform destroy`.
+> Si las EC2 se reinician cambian sus IPs públicas (salvo el frontend, que conserva su Elastic IP): correr `terraform apply` de nuevo para refrescar las integrations. En AWS Academy el lab se corta a las 4 horas y detiene las EC2, así que al volver hay que arrancarlas de nuevo — el auto-arranque de la plataforma puede fallar, verificar SIEMPRE que las 7 estén `running` antes de aplicar. **Con las EC2 detenidas el plan muestra un destroy falso (artefacto) que NO se debe aplicar** (recrearía las instancias y se perdería el despliegue). Tras la demo: `terraform destroy`.
 
-> **Dashboard de RabbitMQ sin exponerlo a Internet** (túnel SSH desde local):
->
-> ```bash
-> ssh -i <llave-correspondiente>.pem -L 15672:localhost:15672 ec2-user@<IP_PUBLICA_DE_cn-rabbit>
-> ```
->
-> Todas las EC2 usan el par `cloudnative-labs` (privada fuera del repositorio. La pública vive en `infra/keys/`).
->
-> Luego abrir `http://localhost:15672` en el navegador (usuario `hotel` y la contraseña del apply).
+**Dashboard de RabbitMQ sin exponerlo a Internet** (túnel SSH desde local):
 
-> **Drill obligatorio el día de la presentación:** Start Lab → `aws configure` → arrancar las 7 EC2 → `terraform apply` (las IPs cambian y el gateway debe refrescar sus integrations) → verificar smoke (login + dashboard + una llamada a la API) → recién presentar.
+```bash
+ssh -i <llave-correspondiente>.pem -L 15672:localhost:15672 ec2-user@<IP_PUBLICA_DE_cn-rabbit>
+```
 
-> **Costos (AWS Academy):** gasto real ≈$5,9 de $50 al 10-oct (panel Vocareum). Encendido ≈$0,12/hora (7 EC2 + IPs). El frontend usa una **Elastic IP** (≈$0,12/día, también en reposo) para que su URL y su CORS queden estables entre sesiones del lab. El resto de EC2 mantiene IP dinámica. `terraform destroy` al cierre libera todo, incluida la EIP. El diseño prioriza el costo marginal por sesión en lugar de un stack 24/7.
+Todas las EC2 usan el par `cloudnative-labs` (privada fuera del repositorio. La pública vive en `infra/keys/`).
+
+Luego abrir `http://localhost:15672` en el navegador (usuario `hotel` y la contraseña del apply).
+
+> **Drill obligatorio el día de la presentación:** Start Lab → `aws configure` → arrancar las 7 EC2 (verificar `running`) → `terraform apply` (las IPs cambian y el gateway debe refrescar sus integrations) → **smoke CON token** (login + dashboard + servicios cargando — el 401 solo prueba el authorizer, no las integrations) → recién presentar.
+
+> **Costos (AWS Academy):** gasto real ≈ $7,3 de $50 al 11-oct (panel Vocareum). Encendido ≈ $0,12/hora (7 EC2 + IPs). El frontend usa una **Elastic IP** (≈$0,12/día, también en reposo) para que su URL y su CORS queden estables entre sesiones del lab. El resto de EC2 mantiene IP dinámica. `terraform destroy` al cierre libera todo, incluida la EIP. El diseño prioriza el costo marginal por sesión en lugar de un stack 24/7.
 
 ## Credenciales y seguridad
 
 - Las claves públicas de Entra ID (clientId, tenant) quedan definidas en `Frontend/src/utils/environment.ts`, y el issuer/audience (`AZURE_TENANT_ID`/`AZURE_AUDIENCE`) en la configuración de cada microservicio. No hay secretos comprometidos en el repositorio. La contraseña de MySQL (`root`) y los identificadores de Entra son solo para el entorno local de desarrollo.
 - `.env.example` es plantilla de los microservicios (DB, puertos, tenant, audience) y `Frontend/.env.example` la del frontend (`VITE_API_BASE_URL`). Los `.env` reales **no se suben** a Git.
 - El `.gitignore` raíz excluye `.env`, `node_modules`, `target/`, `*.log` y artefactos de compilación. `infra/.gitignore` excluye `.terraform/`, `.tfstate` y `.tfvars`.
+
+## Mejoras evaluadas
+
+Opciones de evolución analizadas contra el alcance del entregable. La evaluación es deliberada (costo, beneficio y contexto) y no implica implementación:
+
+| Mejora | Qué aportaría | Costo estimado | Decisión |
+|--------|---------------|----------------|----------|
+| Outbox transaccional en los productores | Entrega garantizada (at-least-once) de los eventos, incluso con el broker caído | Alto: tabla outbox, dispatcher con backoff y pruebas nuevas | Diferida — el fail-safe + confirms/returns cubren el requisito de la EV2 |
+| Versionado de eventos (`v1`) + `X-Correlation-Id` | Contratos evolutivos y trazabilidad entre servicios | Medio: productores, consumidores y pruebas | Diferida |
+| Endpoints múltiples del broker (`SPRING_RABBITMQ_ADDRESSES`) | Los clientes podrían alcanzar ambos nodos del clúster | Bajo en código, requiere publicar el puerto del segundo nodo | Diferida — ambos nodos viven en la misma EC2, sin tolerancia real adicional |
+| Bandeja de notificaciones persistente | Historial in-app con estado leído/no leído por usuario | Alto: base propia, endpoints, BFF y frontend | Fuera del alcance de la rúbrica EP2 |
+| Paginación en los `GET /list` | Contratos `Page<T>` en las búsquedas | Medio: backend, frontend y pruebas | Sin caso real con los volúmenes actuales |
+| Idempotencia en los consumidores | Proteger reprocesos ante reentregas | Medio: claves de idempotencia por consumidor | Sin efecto real hoy — los consumidores registran en logs, no persisten |
+| Flyway (migraciones versionadas) | Evolución del esquema por migraciones | Medio: migraciones por servicio y configuración | Diferida — Hibernate (`ddl-auto=update`) cubre el esquema actual |
+| CI/CD con GitHub Actions | Build, pruebas y despliegue automatizados | Medio-alto: workflows, secretos y mantenimiento | Diferida — el despliegue manual está documentado y verificado |
+| `/registro` funcional | Eliminar el último placeholder visible | Bajo: mini-página explicativa (el alta la gestiona Entra ID) | En evaluación |

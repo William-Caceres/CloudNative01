@@ -48,14 +48,9 @@ function Navbar() {
                             </li>
                             </>
                         ) : (
-                            <>
-                            <li className="nav-item">
-                                <Link className="nav-link active nav_link_style" aria-current="page" to="/registro">Registrarme</Link>
-                            </li>
                             <li className="nav-item">
                                 <Link className="nav-link active nav_link_style" aria-current="page" to="/login">Iniciar sesión</Link>
                             </li>
-                            </>
                         )}
                     </ul>
                 </section>
