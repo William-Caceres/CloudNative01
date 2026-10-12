@@ -1,0 +1,51 @@
+# Cluster RabbitMQ de 2 nodos para la EV2 (se ejecuta en la EC2 cn-rabbit).
+# Despliegue: scp de esta carpeta + docker compose --env-file .env up -d + ./unirse-cluster.sh
+name: hotel-rabbit
+
+services:
+  rabbit1:
+    image: rabbitmq:4.2-management
+    container_name: rabbit1
+    hostname: rabbit1
+    environment:
+      RABBITMQ_ERLANG_COOKIE: ${RABBIT_COOKIE:?falta en .env (ver .env.example)}
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER:?falta en .env (ver .env.example)}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASS:?falta en .env (ver .env.example)}
+    volumes:
+      - rabbit1-data:/var/lib/rabbitmq
+    ports:
+      # 5672: lo consumen reserva, servicio y rabbit-admin dentro de la VPC.
+      # 15672: dashboard, NUNCA se abre en el Security Group (solo tunel SSH).
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  rabbit2:
+    image: rabbitmq:4.2-management
+    container_name: rabbit2
+    hostname: rabbit2
+    environment:
+      # Misma cookie que rabbit1: sin ella el join al cluster no funciona.
+      RABBITMQ_ERLANG_COOKIE: ${RABBIT_COOKIE:?falta en .env (ver .env.example)}
+    volumes:
+      - rabbit2-data:/var/lib/rabbitmq
+    depends_on:
+      rabbit1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  rabbit1-data:
+  rabbit2-data:

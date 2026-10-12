@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -24,6 +25,14 @@ import org.springframework.test.web.servlet.MockMvc;
 @ActiveProfiles("test")
 class ReservaControllerTest {
 
+    private static final String JSON_CODE = "$.code";
+    @SuppressWarnings("java:S1075")
+    private static final String PATH_LIST = "/api/v1/reserva/list";
+    @SuppressWarnings("java:S1075")
+    private static final String PATH_POST = "/api/v1/reserva/post";
+    private static final String ROLE_ADMIN = "ROLE_ADMIN";
+    private static final String ROLE_CLIENTE = "ROLE_CLIENTE";
+
     @Autowired
     private MockMvc mvc;
 
@@ -31,49 +40,96 @@ class ReservaControllerTest {
     private ReservaService ser;
 
     @Test
-    void list_sinToken_devuelve401() throws Exception {
-        mvc.perform(get("/api/v1/reserva/list"))
+    void listSinTokenDevuelve401() throws Exception {
+        mvc.perform(get(PATH_LIST))
             .andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.code").value("AUTH-001"));
+            .andExpect(jsonPath(JSON_CODE).value("AUTH-001"));
     }
 
     @Test
-    void list_conCliente_devuelve200() throws Exception {
+    void listConClienteDevuelve200() throws Exception {
         when(ser.r_listar()).thenReturn(List.of());
-        mvc.perform(get("/api/v1/reserva/list")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CLIENTE"))))
+        mvc.perform(get(PATH_LIST)
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_CLIENTE))))
             .andExpect(status().isOk());
     }
 
     @Test
-    void delete_sinRolAdmin_devuelve403() throws Exception {
+    void deleteSinRolAdminDevuelve403() throws Exception {
         mvc.perform(delete("/api/v1/reserva/delete/1")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CLIENTE"))))
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_CLIENTE))))
             .andExpect(status().isForbidden())
-            .andExpect(jsonPath("$.code").value("AUTH-003"));
+            .andExpect(jsonPath(JSON_CODE).value("AUTH-003"));
     }
 
     @Test
-    void delete_conRolAdmin_devuelve200() throws Exception {
+    void deleteConRolAdminDevuelve200() throws Exception {
         when(ser.r_eliminar(1)).thenReturn(true);
         mvc.perform(delete("/api/v1/reserva/delete/1")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
             .andExpect(status().isOk());
     }
 
     @Test
-    void rutaInexistente_devuelve404() throws Exception {
+    void rutaInexistenteDevuelve404() throws Exception {
         mvc.perform(get("/api/v1/reserva/no-existe")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CLIENTE"))))
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_CLIENTE))))
             .andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.code").value("SYS-002"));
+            .andExpect(jsonPath(JSON_CODE).value("SYS-002"));
     }
 
     @Test
-    void metodoNoPermitido_devuelve405() throws Exception {
-        mvc.perform(post("/api/v1/reserva/list")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+    void metodoNoPermitidoDevuelve405() throws Exception {
+        mvc.perform(post(PATH_LIST)
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
             .andExpect(status().isMethodNotAllowed())
-            .andExpect(jsonPath("$.code").value("SYS-003"));
+            .andExpect(jsonPath(JSON_CODE).value("SYS-003"));
+    }
+
+    @Test
+    void postValidoDevuelve200() throws Exception {
+        mvc.perform(post(PATH_POST)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"idUsuario\":1,\"fechaReserva\":\"2026-12-01\",\"fechaTermino\":\"2026-12-02\",\"tipoReserva\":\"habitacion\",\"cantidadPersonas\":1,\"valorFinal\":1000}")
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void postInvalidoDevuelve400Valid001() throws Exception {
+        mvc.perform(post(PATH_POST)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}")
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath(JSON_CODE).value("VALID-001"));
+    }
+
+    @Test
+    void postJsonMalformadoDevuelve400Valid002() throws Exception {
+        mvc.perform(post(PATH_POST)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{roto")
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath(JSON_CODE).value("VALID-002"));
+    }
+
+    @Test
+    void getIdInvalidoDevuelve400Valid002() throws Exception {
+        mvc.perform(get("/api/v1/reserva/get/abc")
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_CLIENTE))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath(JSON_CODE).value("VALID-002"));
+    }
+
+    @Test
+    void postSinIdUsuarioDevuelve400Valid001() throws Exception {
+        mvc.perform(post(PATH_POST)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"fechaReserva\":\"2026-10-10\",\"fechaTermino\":\"2026-10-12\",\"tipoReserva\":\"simple\",\"cantidadPersonas\":2,\"valorFinal\":50000}")
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath(JSON_CODE).value("VALID-001"));
     }
 }

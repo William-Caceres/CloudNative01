@@ -12,7 +12,7 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class RestClientConfig {
 
-    /** Timeout de las llamadas a microservicios, para no colgar el dashboard si uno tarda */
+    /** Timeout de las llamadas a microservicios, para no colgar el dashboard */
     @Bean
     public RestClient.Builder restClientBuilder(@Value("${bff.microservicios.timeout:4000}") long timeoutMs) {
         Duration timeout = Duration.ofMillis(timeoutMs);

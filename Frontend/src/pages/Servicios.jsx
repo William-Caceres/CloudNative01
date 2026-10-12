@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react"
-import Tarjeta_servicios from "../components/Tarjeta_servicios"
-import { listarServicios } from "../services/servicioService"
+import { useEffect, useState } from 'react'
+import Tarjeta_servicios from '../components/Tarjeta_servicios'
+import { listarServicios } from '../services/servicioService'
 
 function Servicios() {
 

@@ -5,4 +5,6 @@
 *.tfvars
 *.tfplan
 tfplan
-.terraform.lock.hcl
+# El lock (.terraform.lock.hcl) SI se versiona: fija las versiones exactas de los providers.
+# Salidas de plan redirigidas pueden contener secretos en claro.
+plan*.txt

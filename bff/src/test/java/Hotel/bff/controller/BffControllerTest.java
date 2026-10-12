@@ -23,6 +23,11 @@ import org.springframework.test.web.servlet.MockMvc;
 @ActiveProfiles("test")
 class BffControllerTest {
 
+    private static final String JSON_CODE = "$.code";
+    @SuppressWarnings("java:S1075")
+    private static final String PATH_DASHBOARD = "/api/v1/bff/dashboard";
+    private static final String ROLE_CLIENTE = "ROLE_CLIENTE";
+
     @Autowired
     private MockMvc mvc;
 
@@ -30,32 +35,32 @@ class BffControllerTest {
     private BffService ser;
 
     @Test
-    void dashboard_sinToken_devuelve401ConAuth001() throws Exception {
-        mvc.perform(get("/api/v1/bff/dashboard"))
+    void dashboardSinTokenDevuelve401ConAuth001() throws Exception {
+        mvc.perform(get(PATH_DASHBOARD))
             .andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.code").value("AUTH-001"));
+            .andExpect(jsonPath(JSON_CODE).value("AUTH-001"));
     }
 
     @Test
-    void dashboard_autenticado_devuelve200() throws Exception {
+    void dashboardAutenticadoDevuelve200() throws Exception {
         when(ser.b_dashboard("Bearer abc")).thenReturn(Map.of());
-        mvc.perform(get("/api/v1/bff/dashboard")
+        mvc.perform(get(PATH_DASHBOARD)
                 .with(jwt().jwt(j -> j.tokenValue("abc"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CLIENTE"))))
+                        .authorities(new SimpleGrantedAuthority(ROLE_CLIENTE))))
             .andExpect(status().isOk());
     }
 
     @Test
-    void admin_sinRolAdmin_devuelve403ConAuth003() throws Exception {
+    void adminSinRolAdminDevuelve403ConAuth003() throws Exception {
         mvc.perform(get("/api/v1/bff/admin/resumen")
                 .with(jwt().jwt(j -> j.tokenValue("abc"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CLIENTE"))))
+                        .authorities(new SimpleGrantedAuthority(ROLE_CLIENTE))))
             .andExpect(status().isForbidden())
-            .andExpect(jsonPath("$.code").value("AUTH-003"));
+            .andExpect(jsonPath(JSON_CODE).value("AUTH-003"));
     }
 
     @Test
-    void admin_conRolAdmin_devuelve200() throws Exception {
+    void adminConRolAdminDevuelve200() throws Exception {
         when(ser.b_admin("Bearer abc")).thenReturn(Map.of());
         mvc.perform(get("/api/v1/bff/admin/resumen")
                 .with(jwt().jwt(j -> j.tokenValue("abc"))
@@ -64,18 +69,18 @@ class BffControllerTest {
     }
 
     @Test
-    void rutaInexistente_devuelve404() throws Exception {
+    void rutaInexistenteDevuelve404() throws Exception {
         mvc.perform(get("/api/v1/bff/no-existe")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CLIENTE"))))
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_CLIENTE))))
             .andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.code").value("SYS-002"));
+            .andExpect(jsonPath(JSON_CODE).value("SYS-002"));
     }
 
     @Test
-    void metodoNoPermitido_devuelve405() throws Exception {
-        mvc.perform(post("/api/v1/bff/dashboard")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CLIENTE"))))
+    void metodoNoPermitidoDevuelve405() throws Exception {
+        mvc.perform(post(PATH_DASHBOARD)
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_CLIENTE))))
             .andExpect(status().isMethodNotAllowed())
-            .andExpect(jsonPath("$.code").value("SYS-003"));
+            .andExpect(jsonPath(JSON_CODE).value("SYS-003"));
     }
 }

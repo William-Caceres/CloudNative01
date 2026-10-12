@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMsal, useIsAuthenticated, useAccount } from '@azure/msal-react'
-import { loginRequest } from '../auth/authConfig.js'
-import { getRoles, getAccessTokenScopes } from '../auth/authUtils.js'
+import { loginRequest } from '../auth/authConfig'
+import { getRoles, getAccessTokenScopes } from '../auth/authUtils'
 
 function Login() {
     const { instance } = useMsal()

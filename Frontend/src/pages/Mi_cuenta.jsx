@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMsal, useIsAuthenticated, useAccount } from '@azure/msal-react'
-import { getRoles, getAccessTokenScopes } from '../auth/authUtils.js'
-import { obtenerDashboard } from '../services/bffService.js'
+import { getRoles, getAccessTokenScopes } from '../auth/authUtils'
+import { obtenerDashboard } from '../services/bffService'
 
 function Mi_cuenta() {
     const { instance } = useMsal()

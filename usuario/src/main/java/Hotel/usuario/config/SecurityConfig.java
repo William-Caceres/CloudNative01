@@ -2,10 +2,12 @@ package Hotel.usuario.config;
 
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
@@ -37,7 +39,6 @@ public class SecurityConfig {
             .cors(cors -> {})
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/usuario/register", "/api/v1/usuario/login/**").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint(objectMapper)))
@@ -53,22 +54,23 @@ public class SecurityConfig {
             response.setHeader("WWW-Authenticate", "Bearer");
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             objectMapper.writeValue(response.getOutputStream(), ApiError.builder()
-                    .timestamp(LocalDateTime.now())
+                    .timestamp(LocalDateTime.now(ZoneId.systemDefault()))
                     .status(HttpServletResponse.SC_UNAUTHORIZED)
                     .error("No Autorizado")
                     .code("AUTH-001")
-                    .message("Falta un token de acceso valido o el token es invalido")
+                    .message("Falta un token de acceso válido o el token es inválido")
                     .path(request.getRequestURI())
                     .build());
         };
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${CORS_ORIGINS:http://localhost:5173}") String origenes) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedOrigins(List.of(origenes.replace(" ", "").split(",")));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("authorization", "content-type"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

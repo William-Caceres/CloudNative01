@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { obtenerServicio, modificarServicio } from "../services/servicioService"
+import { useEffect, useState } from 'react'
+import { obtenerServicio, modificarServicio } from '../services/servicioService'
 
 function Modificar_servicios({ show }) {
 
@@ -25,8 +25,12 @@ function Modificar_servicios({ show }) {
                 nombre: nombre,
                 descripcion: desc
             }
-            await modificarServicio(id, servicio)
-            show(false)
+            try {
+                await modificarServicio(id, servicio)
+                show(false)
+            } catch {
+                alert("No se pudo modificar el servicio")
+            }
         }else{
             alert("Precio y capacidad deben ser mayores a 0, y tipo/nivel de servicio son obligatorios")
         }
@@ -38,78 +42,79 @@ function Modificar_servicios({ show }) {
 
     useEffect(()=>{
         const cargarServicio = async() => {
-            const res = await obtenerServicio(localStorage.getItem("ID_S"))
-            setT_servicio(res.tipoServicio)
-            setPrecio(res.precio)
-            setN_habitacion(res.numHabitacion)
-            setCapacidad(res.capacidad)
-            setDisponible(res.disponible)
-            setNivel_s(res.nivelServicio)
-            setNombre(res.nombre)
-            setDesc(res.descripcion)
+            try {
+                const res = await obtenerServicio(localStorage.getItem("ID_S"))
+                setT_servicio(res.tipoServicio)
+                setPrecio(res.precio)
+                setN_habitacion(res.numHabitacion)
+                setCapacidad(res.capacidad)
+                setDisponible(res.disponible)
+                setNivel_s(res.nivelServicio)
+                setNombre(res.nombre)
+                setDesc(res.descripcion)
+            } catch {
+                alert("No se pudo cargar el servicio")
+            }
         }
         cargarServicio()
     },[])
 
     return(
-        <>
         <section className="card_black_bg">
             <form className="div_style form_card_size" onSubmit={(e)=>{e.preventDefault(); guardarModificacion()}}>
-                <p className="mb-1 mt-3">ID de servicio o habitacion:</p>
+                <label className="mb-1 mt-3 d-block" htmlFor="n_habitacion">ID de servicio o habitación:</label>
                 <input
-                    className="stuff_mwidth" type="number" required
+                    id="n_habitacion" className="stuff_mwidth" type="number" required
                     value={n_habitacion}
                     onChange={(e)=>setN_habitacion(e.target.value)}
                 />
-                <p className="mb-1 mt-3">Tipo de servicio:</p>
-                <select value={t_servicio} onChange={(e)=>setT_servicio(e.target.value)}>
+                <label className="mb-1 mt-3 d-block" htmlFor="t_servicio">Tipo de servicio:</label>
+                <select id="t_servicio" className="stuff_mwidth" value={t_servicio} onChange={(e)=>setT_servicio(e.target.value)}>
                     <option value="" disabled>Seleccione tipo de servicio</option>
-                    <option value="habitacion">Habitacion</option>
+                    <option value="habitacion">Habitación</option>
                     <option value="comida">Comida</option>
                     <option value="recreativo">Recreativo</option>
                 </select>
-                <p className="mb-1 mt-3">Nivel del servicio:</p>
-                <select value={nivel_s} onChange={(e)=>setNivel_s(e.target.value)}>
+                <label className="mb-1 mt-3 d-block" htmlFor="nivel_s">Nivel del servicio:</label>
+                <select id="nivel_s" className="stuff_mwidth" value={nivel_s} onChange={(e)=>setNivel_s(e.target.value)}>
                     <option value="" disabled>Seleccione nivel de servicio</option>
                     <option value="invitado">Invitado</option>
                     <option value="miembro">Miembro</option>
                     <option value="VIP">VIP</option>
                 </select>
-                <p className="mb-1 mt-3">Nombre:</p>
+                <label className="mb-1 mt-3 d-block" htmlFor="nombre">Nombre:</label>
                 <input
-                    className="stuff_mwidth" type="text" required
+                    id="nombre" className="stuff_mwidth" type="text" required
                     maxLength={50} value={nombre}
                     onChange={(e)=>setNombre(e.target.value)}
                 />
-                <p className="mb-1 mt-3">Descripcion:</p>
+                <label className="mb-1 mt-3 d-block" htmlFor="desc">Descripción:</label>
                 <textarea
-                    className="stuff_mwidth" required
+                    id="desc" className="stuff_mwidth" required
                     maxLength={150} value={desc}
                     onChange={(e)=>setDesc(e.target.value)}
                 />
-                <p className="mb-1 mt-3">Precio:</p>
+                <label className="mb-1 mt-3 d-block" htmlFor="precio">Precio:</label>
                 <input
-                    className="stuff_mwidth" type="number" required
+                    id="precio" className="stuff_mwidth" type="number" required
                     value={precio}
                     onChange={(e)=>setPrecio(e.target.value)}
                 />
-                <p className="mb-1 mt-3">Capacidad servicio:</p>
+                <label className="mb-1 mt-3 d-block" htmlFor="capacidad">Capacidad servicio:</label>
                 <input
-                    className="stuff_mwidth" type="number" required
+                    id="capacidad" className="stuff_mwidth" type="number" required
                     value={capacidad}
                     onChange={(e)=>setCapacidad(e.target.value)}
                 />
-                <p className="mb-1 mt-3">Esta disponible?</p>
+                <label className="mb-1 mt-3 d-block" htmlFor="disponible">¿Está disponible?</label>
                 <input
-                    type="checkbox" checked={disponible}
+                    id="disponible" type="checkbox" checked={disponible}
                     onChange={(e)=>setDisponible(e.target.checked)}
                 />
-                <p className="mb-1 mt-3"></p>
                 <button type="submit">Modificar</button>
                 <button type="button" onClick={cerrarFormulario}>Cerrar</button>
             </form>
         </section>
-        </>
     )
 }
 

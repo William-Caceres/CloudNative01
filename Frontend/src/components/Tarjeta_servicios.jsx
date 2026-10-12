@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react"
-import { obtenerServicio, eliminarServicio } from "../services/servicioService"
-import { useNavigate } from "react-router-dom"
-import Modificar_servicios from "./Modificar_servicios"
+import { useEffect, useState } from 'react'
+import { obtenerServicio, eliminarServicio } from '../services/servicioService'
+import { useNavigate } from 'react-router-dom'
+import Modificar_servicios from './Modificar_servicios'
 
 function Tarjeta_servicios({ servicio: inicial, admin }) {
 
@@ -25,17 +25,26 @@ function Tarjeta_servicios({ servicio: inicial, admin }) {
 
     const eliminar = async () => {
         if (confirm(`¿Eliminar el servicio "${servicio.nombre}"?`)) {
-            await eliminarServicio(id)
-            setShow(false)
+            try {
+                await eliminarServicio(id)
+                setShow(false)
+            } catch {
+                alert("No se pudo eliminar el servicio")
+            }
         }
     }
 
-    // El dato ya viene en la lista; solo se recarga al cerrar el modal de modificacion
+    // El dato ya viene en la lista, solo se recarga al cerrar el modal de modificacion
     useEffect(()=>{
         if (!recargar) return
         const cargarServicio = async() => {
-            setServicio(await obtenerServicio(id))
-            setRecargar(false)
+            try {
+                setServicio(await obtenerServicio(id))
+            } catch {
+                alert("No se pudo recargar el servicio")
+            } finally {
+                setRecargar(false)
+            }
         }
         cargarServicio()
     },[recargar, id])

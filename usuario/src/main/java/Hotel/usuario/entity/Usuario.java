@@ -9,7 +9,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,19 +23,23 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class Usuario {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    
+
+    @NotBlank(message = "El nombre del usuario es obligatorio")
     @Column(nullable = false, length = 100)
     private String nombre;
     private String s_nombre;
+    @NotNull(message = "El apellido paterno es obligatorio")
     @Column(nullable = false, length = 100)
     private String a_paterno;
     private String a_materno;
+    @NotNull(message = "El rut es obligatorio")
     @Column(nullable = false)
     private Integer rut;
+    @NotNull(message = "El dígito verificador es obligatorio")
     @Column(nullable = false, length = 1)
     private String dv_rut;
     private Integer edad;
@@ -40,7 +47,8 @@ public class Usuario {
     private String f_registro;
     @Column(length = 20)
     private String tipo_usuario;
-    
+
+    @NotBlank(message = "El correo es obligatorio")
     @Column(nullable = false, unique = true, length = 150)
     private String correo;
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
@@ -56,12 +64,12 @@ public class Usuario {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now(ZoneId.systemDefault());
+        this.updatedAt = LocalDateTime.now(ZoneId.systemDefault());
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now(ZoneId.systemDefault());
     }
 }

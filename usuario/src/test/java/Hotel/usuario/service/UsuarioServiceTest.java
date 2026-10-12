@@ -18,6 +18,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 @ExtendWith(MockitoExtension.class)
 class UsuarioServiceTest {
 
+    private static final String CORREO_EXISTENTE = "admin.prueba@test.cl";
+    private static final String CORREO_NUEVO = "nuevo@test.cl";
+    private static final String CORREO_CARRERA = "carrera@test.cl";
+
     @Mock
     private UsuarioRepository rep;
 
@@ -27,23 +31,23 @@ class UsuarioServiceTest {
     @Test
     void usuarioExistenteSeDevuelveSinCrear() {
         Usuario existente = new Usuario();
-        existente.setCorreo("admin.prueba@test.cl");
-        when(rep.findByCorreo("admin.prueba@test.cl")).thenReturn(Optional.of(existente));
+        existente.setCorreo(CORREO_EXISTENTE);
+        when(rep.findByCorreo(CORREO_EXISTENTE)).thenReturn(Optional.of(existente));
 
-        Usuario res = ser.u_por_correo("admin.prueba@test.cl", "Admin Prueba");
+        Usuario res = ser.u_por_correo(CORREO_EXISTENTE, "Admin Prueba");
 
         assertEquals(existente, res);
     }
 
     @Test
     void usuarioNuevoSeCreaDesdeElToken() {
-        when(rep.findByCorreo("nuevo@test.cl")).thenReturn(Optional.empty());
+        when(rep.findByCorreo(CORREO_NUEVO)).thenReturn(Optional.empty());
         when(rep.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
-        Usuario res = ser.u_por_correo("nuevo@test.cl", "Nuevo Usuario");
+        Usuario res = ser.u_por_correo(CORREO_NUEVO, "Nuevo Usuario");
 
         assertNotNull(res);
-        assertEquals("nuevo@test.cl", res.getCorreo());
+        assertEquals(CORREO_NUEVO, res.getCorreo());
         assertEquals("Nuevo Usuario", res.getNombre());
         assertEquals("CLIENTE", res.getTipo_usuario());
     }
@@ -51,14 +55,14 @@ class UsuarioServiceTest {
     @Test
     void usuarioNuevoConCarreraSeRecuperaDelConflicto() {
         Usuario existente = new Usuario();
-        existente.setCorreo("carrera@test.cl");
-        when(rep.findByCorreo("carrera@test.cl"))
+        existente.setCorreo(CORREO_CARRERA);
+        when(rep.findByCorreo(CORREO_CARRERA))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(existente));
         when(rep.save(any(Usuario.class)))
                 .thenThrow(new DataIntegrityViolationException("correo duplicado"));
 
-        Usuario res = ser.u_por_correo("carrera@test.cl", "Carrera Test");
+        Usuario res = ser.u_por_correo(CORREO_CARRERA, "Carrera Test");
 
         assertEquals(existente, res);
     }

@@ -16,24 +16,16 @@
 }
 .nav_link_style{
   color: #ffffff !important;
-}.nav_link_style:hover{
+}
+.nav_link_style:hover{
   text-decoration: underline;
 }
 .force_c_white{color:#ffffff !important}
-.force_border{border: solid 1px #ffffff !important; border-radius: 1px !important;}
-
-.center_card{
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: transparent;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.force_border{
+  border: solid 1px #ffffff !important;
+  border-radius: 1px !important;
 }
+
 .card_black_bg{
   position: fixed;
   top: 0;
@@ -51,10 +43,6 @@
   max-height: 95vh;
   width: 95vw;
   overflow-y: auto;
-}
-.forms_mwidth{
-  width: 100%;
-  max-width: 450px;
 }
 .stuff_mwidth{
   width: 100%;

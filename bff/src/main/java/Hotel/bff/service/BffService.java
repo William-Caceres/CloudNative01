@@ -18,6 +18,8 @@ import org.springframework.web.client.RestClientException;
 @Service
 public class BffService {
 
+    private static final String ERROR = "error";
+
     private final RestClient restClient;
     private final String urlUsuario;
     private final String urlReserva;
@@ -64,7 +66,7 @@ public class BffService {
 
     private Map<String, Object> error(String mensaje) {
         Map<String, Object> salida = new LinkedHashMap<>();
-        salida.put("error", mensaje);
+        salida.put(ERROR, mensaje);
         return salida;
     }
 
@@ -72,7 +74,7 @@ public class BffService {
         Map<String, Object> resultado = new LinkedHashMap<>();
         if (base == null || base.isBlank()) {
             log.warn("Destino no configurado para {}", ruta);
-            resultado.put("error", "Destino no configurado");
+            resultado.put(ERROR, "Destino no configurado");
             return resultado;
         }
         String url = base.endsWith("/") ? base.substring(0, base.length() - 1) + ruta : base + ruta;
@@ -85,7 +87,7 @@ public class BffService {
                     .body(Object.class));
         } catch (RestClientException ex) {
             log.error("Fallo al consultar {} [{}]: {}", ruta, url, ex.getMessage());
-            resultado.put("error", "No se pudo consultar el microservicio");
+            resultado.put(ERROR, "No se pudo consultar el microservicio");
         }
         return resultado;
     }
