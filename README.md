@@ -225,7 +225,7 @@ Abrir [http://localhost:5173](http://localhost:5173) — el `redirectUri` de MSA
 
 > **Modo actual (demo):** `environment.ts` apunta al API Gateway de AWS (un solo origen), así el frontend local consume la nube. Para apuntar a otro gateway se define `VITE_API_BASE_URL` (ver `Frontend/.env.example`) o se edita el valor por defecto. El BFF, en local, sigue aceptando `MICROSERVICIOS_*_URL` para resolver sus 3 destinos.
 
-> **Frontend en la nube:** el `dist` se sirve directo desde la EC2 por HTTP (puerto 80) y — la vía pública — a través del **mismo API Gateway**: `https://z8bmmvfdwh.execute-api.us-east-1.amazonaws.com/` (rutas `GET /` y `GET /{proxy+}` sin JWT). Por HTTP directo la app no inicializa (MSAL v5 exige contexto seguro, `crypto.subtle`), así que la URL oficial del frontend es la del gateway: certificado real, login MSAL operativo desde cualquier navegador y llamadas al API en el mismo origen. Su redirect URI está registrado en Entra junto al de localhost.
+> **Frontend en la nube:** el `dist` se sirve directo desde la EC2 por HTTP (puerto 80) y — la vía pública — a través del **mismo API Gateway**: `https://z8bmmvfdwh.execute-api.us-east-1.amazonaws.com/` (URL de la sesión anterior; cambia al recrear el gateway) (rutas `GET /` y `GET /{proxy+}` sin JWT). Por HTTP directo la app no inicializa (MSAL v5 exige contexto seguro, `crypto.subtle`), así que la URL oficial del frontend es la del gateway: certificado real, login MSAL operativo desde cualquier navegador y llamadas al API en el mismo origen. Su redirect URI está registrado en Entra junto al de localhost.
 
 Accesos locales una vez levantado el stack:
 
@@ -285,7 +285,7 @@ Accesos locales una vez levantado el stack:
 
 **Todos** los endpoints requieren un JWT de Entra ID válido (`Authorization: Bearer <token>`). Sin token responden `401` y con rol insuficiente `403`. Los roles se aplican con `@PreAuthorize` (escrituras reservadas a `ADMIN`).
 
-> Los POST y PUT de `reserva`, `servicio` y `rabbit-admin` validan la entrada: campos inválidos responden `400 VALID-001` con el detalle por campo, y un JSON malformado `400 VALID-002`.
+> Los POST y PUT de `reserva`, `servicio` y `rabbit-admin`, y el PUT de `usuario`, validan la entrada: campos inválidos responden `400 VALID-001` con el detalle por campo, y un JSON malformado `400 VALID-002`.
 
 > El alta de usuarios la gestiona Entra ID (MSAL). La fila local se crea en el primer acceso al endpoint `/me` y el campo `contrasenia` de la base de datos queda sin uso (los endpoints legacy `register` y `login` fueron eliminados para no exponer superficie anónima).
 
@@ -338,6 +338,7 @@ Topología declarada **únicamente** por `rabbit-admin` al arrancar (idempotente
 | `documentos.queue` | `documentos.dlq` | `hotel.topic` ← `servicio.*` | `servicio.actualizado` |
 
 - Todos los exchanges y colas son `durable`. Las colas derivan a su DLQ por `hotel.dlx` y cada DLQ retiene sus mensajes 24 h (`x-message-ttl`) como política de retención.
+- **Alerta de DLQ:** la profundidad de las 3 DLQ se consulta directo al broker (rabbitmqctl o la API de administración), de modo que una acumulación de mensajes no entregados se detecta y se atiende.
 - Los eventos viajan como JSON (`JacksonJsonMessageConverter`, idéntico en productores y consumidores).
 - **ACK manual (3 rutas):** éxito → `basicAck` · inválido → `basicNack(false)` (DLQ directa) · recuperable → `basicNack(true)` (un reintento) y en la reentrega → `basicNack(false)` (DLQ).
 
@@ -400,11 +401,11 @@ VPC 10.0.0.0/16 (subred pública, 7 EC2 t2.micro AL2023)
    ├─ cn-bff            :8084  agrega datos y consume la API vía gateway
    ├─ cn-rabbit         clúster RabbitMQ de 2 nodos (docker compose)
    └─ cn-rabbit-admin   :8085  admin REST + 3 consumidores (ACK manual)
-Security Group: 80 y 8081-8085 abiertos  ·  22 con llave  ·  3306 y 5672 solo entre EC2 del grupo
+Security Group: 80 y 8081-8085 abiertos  ·  22 con llave  ·  15672/8080 abiertos solo para la demo  ·  3306 y 5672 solo entre EC2 del grupo
 ```
 
 - **7 EC2 `t2.micro`** (AL2023): frontend (nginx), `usuario` (microservicio + MySQL 8 con `h_usuario`, `h_reserva`, `h_servicio`), `reserva`, `servicio` y `bff` (microservicio + JDK 21), más las dos de EP2: `cn-rabbit` (clúster RabbitMQ de 2 nodos con docker-compose) y `cn-rabbit-admin` (microservicio `rabbit-admin`, `:8085`). Las 7 usan el mismo par `cloudnative-labs`, gestionado por Terraform desde `infra/keys/cloudnative-labs.pub` (la privada no está en el repo). Cada microservicio tiene su servicio `systemd` (`cn-*`).
-- **Security Group**: 8081–8085 y 80 públicos (API Gateway + verificación), SSH 22 (lab), 3306 y **5672 solo entre EC2 del grupo**. El dashboard de RabbitMQ (`15672`) **no se abre a Internet**: se accede por túnel SSH.
+- **Security Group**: 8081–8085 y 80 públicos (API Gateway + verificación), SSH 22 (lab), 3306 y **5672 solo entre EC2 del grupo**. Para la demo se abren **15672** (dashboard RabbitMQ) y **8080** (Kafka UI) por IP pública; se cierran al terminar. El túnel SSH queda como respaldo.
 - **API Gateway HTTP API v2** con authorizer **JWT Entra** (valida, no solo pasa el token), CORS y rutas `OPTIONS` sin auth para que el preflight no caiga en el authorizer. Proxy `/{proxy+}` hacia cada microservicio, incluido `rabbit-admin`, y logs de acceso en CloudWatch (retención 30 días). También sirve el frontend público en `GET /` y `GET /{proxy+}` sin JWT, solo archivos estáticos. Las rutas `/api/v1/*` mantienen su authorizer JWT.
 
 ```bash
@@ -414,26 +415,26 @@ terraform plan
 terraform apply   # responde yes
 ```
 
-Las credenciales del broker las genera Terraform (`random_password`, igual que la de MySQL): no viven en el repositorio y se recuperan con `terraform output -raw rabbit_pass` (quedan en el `tfstate` local, que no se commitea).
+Credenciales fijas de laboratorio: RabbitMQ `hotel` / `hotel`; MySQL: la definida en `infra/terraform.tfvars`. No son credenciales de producción y no se usan fuera del laboratorio. La contraseña de MySQL y el AMI viven en `infra/terraform.tfvars`, que está ignorado por git.
 
 Despliegue post-apply:
 
 1. Subir los 5 jars (`usuario`, `reserva`, `servicio`, `bff`, `rabbit-admin`) a `/opt/apps/` y `systemctl start cn-*`.
-2. **Clúster RabbitMQ:** copiar `infra/rabbit-cluster/` a la EC2 `cn-rabbit`, crear `.env` (cookie, usuario y la contraseña de `terraform output -raw rabbit_pass`) y ejecutar `docker compose --env-file .env up -d` y luego `bash unirse-cluster.sh`.
+2. **Clúster RabbitMQ:** copiar `infra/rabbit-cluster/` a la EC2 `cn-rabbit`, crear `.env` con `RABBIT_COOKIE=cloudnativecookie`, `RABBIT_USER=hotel` y `RABBIT_PASS=hotel`, y ejecutar `docker compose --env-file .env up -d` y luego `bash unirse-cluster.sh`.
 3. Seeds de MySQL (`seeds/seed_usuarios.sql`, `seeds/seed_servicios.sql`) y `dist/` del frontend a `/var/www/grandhotel` + `sudo chmod -R a+rX /var/www/grandhotel`.
 4. **Orden de arranque en la nube:** broker → `rabbit-admin` (declara la topología) → `reserva`/`servicio` (productores) → resto de microservicios.
 
 > **CORS de los microservicios:** cada servicio limita sus orígenes con la variable `CORS_ORIGINS` (default `http://localhost:5173`, nunca queda abierto) y sus métodos y cabeceras permitidas son explícitos (`authorization`, `content-type`). Terraform la declara en el `user_data` de cada EC2 (los orígenes locales + la Elastic IP del frontend). En las instancias del lab está aplicada como drop-in de systemd (`/etc/systemd/system/cn-<svc>.service.d/10-cors.conf`) y se re-aplica sola si las EC2 se recrean.
 
-Outputs: `frontend_public_ip`, `usuario_public_ip`, `usuario_private_ip`, `microservicios_public_ip`, `rabbit_public_ip`, `rabbit_admin_public_ip`, `api_url`, `rabbit_private_ip`, `db_password` y `rabbit_pass` (sensitive).
+Outputs: `frontend_public_ip`, `usuario_public_ip`, `usuario_private_ip`, `microservicios_public_ip`, `rabbit_public_ip`, `rabbit_admin_public_ip`, `api_url`, `rabbit_private_ip`.
 
 > **Las IPs se leen de Terraform, nunca se copian a mano** (las dinámicas cambian cada vez que el lab reinicia las EC2, la del frontend es fija vía Elastic IP): `terraform -chdir=infra output` muestra todo, `terraform output -raw frontend_public_ip` da la del frontend y `terraform output -json microservicios_public_ip` las de reserva/servicio/bff. Un `apply` refresca solo las integrations del gateway y el CORS — no hay que editar archivos.
 
-> **Despliegue limpio (gateway nuevo):** las EC2 `reserva`, `servicio` y `bff` reciben las 3 variables `MICROSERVICIOS_*_URL` con el `api_endpoint` generado por Terraform (user_data). Para el frontend, el build toma el gateway desde `environment.ts` o `VITE_API_BASE_URL` (ver `Frontend/.env.example`) — recompilar `dist/` si cambia. Tras subir el `dist/`, ejecutar `sudo chmod -R a+rX /var/www/grandhotel` para que nginx pueda leer los assets (el scp los deja con permisos restrictivos).
+> **Despliegue limpio (gateway nuevo):** las EC2 `reserva`, `servicio` y `bff` reciben las 3 variables `MICROSERVICIOS_*_URL` con el `api_endpoint` generado por Terraform (user_data). Para el frontend, el build toma el gateway desde `environment.ts` o `VITE_API_BASE_URL` (ver `Frontend/.env.example`) — recompilar `dist/` si cambia y actualizar el redirect URI en Entra (Authentication → SPA) con el nuevo origen. Tras subir el `dist/`, ejecutar `sudo chmod -R a+rX /var/www/grandhotel` para que nginx pueda leer los assets (el scp los deja con permisos restrictivos).
 
 > Si las EC2 se reinician cambian sus IPs públicas (salvo el frontend, que conserva su Elastic IP): correr `terraform apply` de nuevo para refrescar las integrations. En AWS Academy el lab se corta a las 4 horas y detiene las EC2, así que al volver hay que arrancarlas de nuevo — el auto-arranque de la plataforma puede fallar, verificar SIEMPRE que las 7 estén `running` antes de aplicar. **Con las EC2 detenidas el plan muestra un destroy falso (artefacto) que NO se debe aplicar** (recrearía las instancias y se perdería el despliegue). Tras la demo: `terraform destroy`.
 
-**Dashboard de RabbitMQ sin exponerlo a Internet** (túnel SSH desde local):
+**Dashboard de RabbitMQ (demo):** abrir `http://<IP_PUBLICA_DE_cn-rabbit>:15672` con usuario `hotel` y contraseña `hotel`. Los puertos 15672 y 8080 se abren por IP pública para la demo; 5672 y 9092-9094 siguen internos. El túnel SSH queda como respaldo:
 
 ```bash
 ssh -i <llave-correspondiente>.pem -L 15672:localhost:15672 ec2-user@<IP_PUBLICA_DE_cn-rabbit>
@@ -441,15 +442,13 @@ ssh -i <llave-correspondiente>.pem -L 15672:localhost:15672 ec2-user@<IP_PUBLICA
 
 Todas las EC2 usan el par `cloudnative-labs` (privada fuera del repositorio. La pública vive en `infra/keys/`).
 
-Luego abrir `http://localhost:15672` en el navegador (usuario `hotel` y la contraseña del apply).
-
 > **Drill obligatorio el día de la presentación:** Start Lab → `aws configure` → arrancar las 7 EC2 (verificar `running`) → `terraform apply` (las IPs cambian y el gateway debe refrescar sus integrations) → **smoke CON token** (login + dashboard + servicios cargando — el 401 solo prueba el authorizer, no las integrations) → recién presentar.
 
-> **Costos (AWS Academy):** gasto real ≈ $7,3 de $50 al 11-oct (panel Vocareum). Encendido ≈ $0,12/hora (7 EC2 + IPs). El frontend usa una **Elastic IP** (≈$0,12/día, también en reposo) para que su URL y su CORS queden estables entre sesiones del lab. El resto de EC2 mantiene IP dinámica. `terraform destroy` al cierre libera todo, incluida la EIP. El diseño prioriza el costo marginal por sesión en lugar de un stack 24/7.
+> **Costos (AWS Academy):** gasto real ≈ $8,7 de $50 al 12-oct (panel Vocareum). Encendido ≈ $0,12/hora (7 EC2 + IPs). El frontend usa una **Elastic IP** (≈$0,12/día, también en reposo) para que su URL y su CORS queden estables entre sesiones del lab. El resto de EC2 mantiene IP dinámica. `terraform destroy` al cierre libera todo, incluida la EIP. El diseño prioriza el costo marginal por sesión en lugar de un stack 24/7.
 
 ## Credenciales y seguridad
 
-- Las claves públicas de Entra ID (clientId, tenant) quedan definidas en `Frontend/src/utils/environment.ts`, y el issuer/audience (`AZURE_TENANT_ID`/`AZURE_AUDIENCE`) en la configuración de cada microservicio. No hay secretos comprometidos en el repositorio. La contraseña de MySQL (`root`) y los identificadores de Entra son solo para el entorno local de desarrollo.
+- Las claves públicas de Entra ID (clientId, tenant) quedan definidas en `Frontend/src/utils/environment.ts`, y el issuer/audience (`AZURE_TENANT_ID`/`AZURE_AUDIENCE`) en la configuración de cada microservicio. No hay secretos de producción en el repositorio. Las credenciales de laboratorio son RabbitMQ `hotel`/`hotel` y la contraseña de MySQL definida en `infra/terraform.tfvars`; no deben reutilizarse fuera del laboratorio.
 - `.env.example` es plantilla de los microservicios (DB, puertos, tenant, audience) y `Frontend/.env.example` la del frontend (`VITE_API_BASE_URL`). Los `.env` reales **no se suben** a Git.
 - El `.gitignore` raíz excluye `.env`, `node_modules`, `target/`, `*.log` y artefactos de compilación. `infra/.gitignore` excluye `.terraform/`, `.tfstate` y `.tfvars`.
 
@@ -459,7 +458,7 @@ Opciones de evolución analizadas contra el alcance del entregable. La evaluaci�
 
 | Mejora | Qué aportaría | Costo estimado | Decisión |
 |--------|---------------|----------------|----------|
-| Outbox transaccional en los productores | Entrega garantizada (at-least-once) de los eventos, incluso con el broker caído | Alto: tabla outbox, dispatcher con backoff y pruebas nuevas | Diferida — el fail-safe + confirms/returns cubren el requisito de la EV2 |
+| Outbox transaccional en los productores | Entrega garantizada (at-least-once) de los eventos, incluso con el broker caído | Alto: tabla outbox, dispatcher con backoff y pruebas nuevas | Diferida — el fail-safe + confirms/returns cubren el requisito de la EP2 |
 | Versionado de eventos (`v1`) + `X-Correlation-Id` | Contratos evolutivos y trazabilidad entre servicios | Medio: productores, consumidores y pruebas | Diferida |
 | Endpoints múltiples del broker (`SPRING_RABBITMQ_ADDRESSES`) | Los clientes podrían alcanzar ambos nodos del clúster | Bajo en código, requiere publicar el puerto del segundo nodo | Diferida — ambos nodos viven en la misma EC2, sin tolerancia real adicional |
 | Bandeja de notificaciones persistente | Historial in-app con estado leído/no leído por usuario | Alto: base propia, endpoints, BFF y frontend | Fuera del alcance de la rúbrica EP2 |
@@ -467,4 +466,4 @@ Opciones de evolución analizadas contra el alcance del entregable. La evaluaci�
 | Idempotencia en los consumidores | Proteger reprocesos ante reentregas | Medio: claves de idempotencia por consumidor | Sin efecto real hoy — los consumidores registran en logs, no persisten |
 | Flyway (migraciones versionadas) | Evolución del esquema por migraciones | Medio: migraciones por servicio y configuración | Diferida — Hibernate (`ddl-auto=update`) cubre el esquema actual |
 | CI/CD con GitHub Actions | Build, pruebas y despliegue automatizados | Medio-alto: workflows, secretos y mantenimiento | Diferida — el despliegue manual está documentado y verificado |
-| `/registro` funcional | Eliminar el último placeholder visible | Bajo: mini-página explicativa (el alta la gestiona Entra ID) | En evaluación |
+| `/registro` funcional | Eliminar el último placeholder visible | Bajo: mini-página explicativa (el alta la gestiona Entra ID) | Descartada — la gestión de usuarios corresponde a Entra ID y la vista se elimina en la próxima entrega |
