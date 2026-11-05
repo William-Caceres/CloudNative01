@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - Main
+      - feature/emilio
+  pull_request:
+    branches:
+      - Main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  java-tests:
+    name: Java tests (${{ matrix.module }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [usuario, reserva, servicio, bff, rabbit-admin]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: '**/pom.xml'
+
+      - name: Run tests
+        run: mvn -B -ntp -f ${{ matrix.module }}/pom.xml test
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install
+        working-directory: Frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        working-directory: Frontend
+        run: npm run lint
+
+      - name: Build
+        working-directory: Frontend
+        run: npm run build
+
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.14.8'
+          terraform_wrapper: false
+
+      - name: Format check
+        working-directory: infra
+        run: terraform fmt -check -recursive
+
+      - name: Init (sin backend ni credenciales)
+        working-directory: infra
+        run: terraform init -backend=false -lockfile=readonly -input=false
+
+      - name: Validate
+        working-directory: infra
+        run: terraform validate
