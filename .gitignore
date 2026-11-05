@@ -69,3 +69,50 @@ qodana.yaml
 /index.html
 /script.js
 /styles.css
+
+# Documentacion interna, evidencias y uso del agente
+_interno/
+internal/
+tools/
+docs/_interno/
+docs/EP3/evidencias/
+docs/EP3_DEMO.md
+capturas/
+screenshots/
+evidencias/
+artifacts/
+exports/
+logs/
+backups/
+tmp/
+temp/
+
+# Configuracion de agentes
+AGENTS.md
+.opencode/
+.claude/
+.cursor/
+.aider*
+opencode.json
+CLAUDE.md
+
+# Claves y credenciales privadas
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+*.ppk
+.npmrc
+.pypirc
+.netrc
+.git-credentials
+
+# Terraform local (el lock si se versiona)
+**/*.tfvars
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
+**/.terraform/
