@@ -5,10 +5,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.5"
-    }
   }
 }
 
@@ -44,14 +40,9 @@ locals {
   )
 }
 
-data "aws_ami" "al2023" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["al2023-ami-2023.*-x86_64"]
-  }
+variable "ami_id" {
+  description = "AMI AL2023 fija para las EC2 del laboratorio."
+  type        = string
 }
 
 # Origenes CORS extra (el frontend en EC2 se agrega en cors_configuration)
@@ -68,10 +59,19 @@ locals {
   cors_origins_env  = join(",", local.cors_origins_list)
 }
 
-# Usuario del cluster RabbitMQ de EV2 (la password la genera random_password).
 variable "rabbit_user" {
-  description = "Usuario del cluster RabbitMQ de EV2."
+  description = "Usuario del cluster RabbitMQ de laboratorio."
   default     = "hotel"
+}
+
+variable "rabbit_password" {
+  description = "Password del cluster RabbitMQ de laboratorio."
+  default     = "hotel"
+}
+
+variable "db_password" {
+  description = "Password de MySQL de laboratorio."
+  type        = string
 }
 
 # Tenant y audience de Entra ID (identificadores publicos de la app del curso).
@@ -84,18 +84,6 @@ variable "azure_audience" {
   description = "Audiences aceptadas por el authorizer JWT (formato crudo y api://)."
   type        = list(string)
   default     = ["46cda96c-1ab7-42af-a838-5ad46de31226", "api://46cda96c-1ab7-42af-a838-5ad46de31226"]
-}
-
-resource "random_password" "db_pass" {
-  length  = 20
-  special = false
-}
-
-# Credencial del cluster RabbitMQ de EV2: se genera sola y se recupera con
-# terraform output -raw rabbit_pass
-resource "random_password" "rabbit_pass" {
-  length  = 24
-  special = false
 }
 
 # VPC propia: 1 VPC + 1 subred publica + IGW + ruta por defecto
@@ -196,6 +184,26 @@ resource "aws_security_group_rule" "ec2_rabbit_interno" {
   description       = "RabbitMQ del cluster: solo conexion entre las EC2 del grupo"
 }
 
+resource "aws_security_group_rule" "ec2_rabbit_dashboard" {
+  type              = "ingress"
+  security_group_id = aws_security_group.ec2.id
+  from_port         = 15672
+  to_port           = 15672
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "RabbitMQ dashboard por IP publica para la demo"
+}
+
+resource "aws_security_group_rule" "ec2_kafka_ui" {
+  type              = "ingress"
+  security_group_id = aws_security_group.ec2.id
+  from_port         = 8080
+  to_port           = 8080
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "Kafka UI por IP publica para la demo"
+}
+
 resource "aws_security_group_rule" "ec2_egress" {
   type              = "egress"
   security_group_id = aws_security_group.ec2.id
@@ -207,7 +215,7 @@ resource "aws_security_group_rule" "ec2_egress" {
 
 # EC2 frontend: nginx + build React (se sube dist/ por scp)
 resource "aws_instance" "frontend" {
-  ami                         = data.aws_ami.al2023.id
+  ami                         = var.ami_id
   instance_type               = "t2.micro"
   key_name                    = aws_key_pair.ev2.key_name
   subnet_id                   = aws_subnet.public.id
@@ -279,7 +287,7 @@ resource "aws_eip_association" "frontend" {
 
 # EC2 usuario: microservicio + MySQL (los demas microservicios apuntan a su IP privada)
 resource "aws_instance" "usuario" {
-  ami                         = data.aws_ami.al2023.id
+  ami                         = var.ami_id
   instance_type               = "t2.micro"
   key_name                    = aws_key_pair.ev2.key_name
   subnet_id                   = aws_subnet.public.id
@@ -299,7 +307,7 @@ dnf install -y mysql-community-server
 systemctl enable --now mysqld
 DB_HOST='127.0.0.1'
 DB_USER='admin'
-DB_PASS='${random_password.db_pass.result}'
+DB_PASS='${var.db_password}'
 for i in $(seq 1 60); do
 mysqladmin ping --silent >/dev/null 2>&1 && break
 sleep 5
@@ -347,7 +355,7 @@ EOT
 # EC2 reserva/servicio: solo microservicio, BD en la instancia usuario
 resource "aws_instance" "microservicio" {
   for_each                    = local.microservicios_app
-  ami                         = data.aws_ami.al2023.id
+  ami                         = var.ami_id
   instance_type               = "t2.micro"
   key_name                    = aws_key_pair.ev2.key_name
   subnet_id                   = aws_subnet.public.id
@@ -363,10 +371,10 @@ mkdir -p /opt/apps
 chown ec2-user:ec2-user /opt/apps
 DB_HOST='${aws_instance.usuario.private_ip}'
 DB_USER='admin'
-DB_PASS='${random_password.db_pass.result}'
+DB_PASS='${var.db_password}'
 RABBIT_HOST='${aws_instance.cn_rabbit.private_ip}'
 RABBIT_USER='${var.rabbit_user}'
-RABBIT_PASS='${random_password.rabbit_pass.result}'
+RABBIT_PASS='${var.rabbit_password}'
 cat > /etc/systemd/system/cn-${each.key}.service <<UNIT
 [Unit]
 Description=CloudNative microservicio ${each.key}
@@ -411,7 +419,7 @@ resource "aws_key_pair" "ev2" {
 # EC2 cn-rabbit: cluster RabbitMQ de 2 nodos con docker compose (EV2).
 # El compose se sube en el despliegue (infra/rabbit-cluster por scp).
 resource "aws_instance" "cn_rabbit" {
-  ami                         = data.aws_ami.al2023.id
+  ami                         = var.ami_id
   instance_type               = "t2.micro"
   key_name                    = aws_key_pair.ev2.key_name
   subnet_id                   = aws_subnet.public.id
@@ -436,7 +444,7 @@ EOT
 
 # EC2 cn-rabbit-admin: microservicio administrador de RabbitMQ (:8085, EV2).
 resource "aws_instance" "rabbit_admin" {
-  ami                         = data.aws_ami.al2023.id
+  ami                         = var.ami_id
   instance_type               = "t2.micro"
   key_name                    = aws_key_pair.ev2.key_name
   subnet_id                   = aws_subnet.public.id
@@ -459,7 +467,7 @@ WorkingDirectory=/opt/apps
 Environment=RABBITMQ_HOST=${aws_instance.cn_rabbit.private_ip}
 Environment=RABBITMQ_PORT=5672
 Environment=RABBITMQ_USER=${var.rabbit_user}
-Environment=RABBITMQ_PASSWORD=${random_password.rabbit_pass.result}
+Environment=RABBITMQ_PASSWORD=${var.rabbit_password}
 Environment=SERVER_PORT=8085
 Environment=CORS_ORIGINS=${local.cors_origins_env}
 ExecStart=/usr/bin/java -jar /opt/apps/rabbit-admin-0.0.1-SNAPSHOT.jar
@@ -622,12 +630,4 @@ output "api_url" {
   value = aws_apigatewayv2_api.http.api_endpoint
 }
 
-output "db_password" {
-  value     = random_password.db_pass.result
-  sensitive = true
-}
 
-output "rabbit_pass" {
-  value     = random_password.rabbit_pass.result
-  sensitive = true
-}
