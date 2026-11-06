@@ -1,13 +1,18 @@
 package Hotel.reserva.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import Hotel.reserva.dto.PagoRequest;
+import Hotel.reserva.entity.Reserva;
 import Hotel.reserva.service.ReservaService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -30,6 +35,7 @@ class ReservaControllerTest {
     private static final String PATH_LIST = "/api/v1/reserva/list";
     @SuppressWarnings("java:S1075")
     private static final String PATH_POST = "/api/v1/reserva/post";
+    private static final String PATH_PAGO = "/api/v1/reserva/1/pago";
     private static final String ROLE_ADMIN = "ROLE_ADMIN";
     private static final String ROLE_CLIENTE = "ROLE_CLIENTE";
 
@@ -128,6 +134,45 @@ class ReservaControllerTest {
         mvc.perform(post(PATH_POST)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"fechaReserva\":\"2026-10-10\",\"fechaTermino\":\"2026-10-12\",\"tipoReserva\":\"simple\",\"cantidadPersonas\":2,\"valorFinal\":50000}")
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath(JSON_CODE).value("VALID-001"));
+    }
+
+    @Test
+    void pagoSinTokenDevuelve401() throws Exception {
+        mvc.perform(put(PATH_PAGO)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"metodoPago\":\"TARJETA\"}"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath(JSON_CODE).value("AUTH-001"));
+    }
+
+    @Test
+    void pagoConClienteDevuelve403() throws Exception {
+        mvc.perform(put(PATH_PAGO)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"metodoPago\":\"TARJETA\"}")
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_CLIENTE))))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath(JSON_CODE).value("AUTH-003"));
+    }
+
+    @Test
+    void pagoConAdminValidoDevuelve200() throws Exception {
+        when(ser.r_confirmarPago(eq(1), any(PagoRequest.class))).thenReturn(new Reserva());
+        mvc.perform(put(PATH_PAGO)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"metodoPago\":\"TARJETA\"}")
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void pagoSinMetodoDevuelve400Valid001() throws Exception {
+        mvc.perform(put(PATH_PAGO)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}")
                 .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath(JSON_CODE).value("VALID-001"));

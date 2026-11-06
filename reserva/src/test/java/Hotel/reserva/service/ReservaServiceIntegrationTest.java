@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import Hotel.reserva.entity.Reserva;
 import Hotel.reserva.exception.EntidadNoEncontradaException;
+import Hotel.reserva.messaging.KafkaEventPublisher;
 import Hotel.reserva.repository.ReservaRepository;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -25,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Cobertura real del servicio: persistencia en H2 y evento verificado contra el broker local. */
@@ -43,6 +45,9 @@ class ReservaServiceIntegrationTest {
 
     @Autowired
     private ReservaRepository rep;
+
+    @MockitoBean
+    private KafkaEventPublisher kafkaPublisher;
 
     @Autowired
     private RabbitTemplate rabbitTemplate;

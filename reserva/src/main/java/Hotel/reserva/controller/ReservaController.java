@@ -1,5 +1,6 @@
 package Hotel.reserva.controller;
 
+import Hotel.reserva.dto.PagoRequest;
 import Hotel.reserva.entity.Reserva;
 import Hotel.reserva.service.ReservaService;
 import jakarta.validation.Valid;
@@ -47,6 +48,12 @@ public class ReservaController {
     @PreAuthorize("hasRole('ADMIN')")
     public Reserva rc_modificar(@PathVariable Integer id, @Valid @RequestBody Reserva req){
         return ser.r_modificar(id, req);
+    }
+
+    @PutMapping("/{id}/pago")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Reserva rc_confirmarPago(@PathVariable Integer id, @Valid @RequestBody PagoRequest req){
+        return ser.r_confirmarPago(id, req);
     }
 
     @DeleteMapping("/delete/{id}")

@@ -26,6 +26,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class Reserva {
 
+    public static final String ESTADO_PAGO_PENDIENTE = "PENDIENTE";
+    public static final String ESTADO_PAGO_CONFIRMADO = "CONFIRMADO";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
@@ -55,6 +58,15 @@ public class Reserva {
     @Column(nullable = false)
     private Integer valorFinal;
 
+    @Column(name = "estado_pago", length = 20)
+    private String estadoPago = ESTADO_PAGO_PENDIENTE;
+    @Size(max = 30, message = "El metodo de pago no puede superar los 30 caracteres")
+    @Column(name = "metodo_pago", length = 30)
+    private String metodoPago;
+    @Size(max = 36, message = "La referencia de pago no puede superar los 36 caracteres")
+    @Column(name = "referencia_pago", length = 36)
+    private String referenciaPago;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -63,6 +75,9 @@ public class Reserva {
 
     @PrePersist
     protected void onCreate() {
+        if (this.estadoPago == null || this.estadoPago.isBlank()) {
+            this.estadoPago = ESTADO_PAGO_PENDIENTE;
+        }
         this.createdAt = LocalDateTime.now(ZoneId.systemDefault());
         this.updatedAt = LocalDateTime.now(ZoneId.systemDefault());
     }
