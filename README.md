@@ -175,9 +175,9 @@ npm install
 npm run dev
 ```
 
-Abrir [http://localhost:5173](http://localhost:5173). El `redirectUri` de MSAL es el origen actual y está registrado en Entra para localhost y para la URL pública del gateway. El client ID y el tenant viven en `Frontend/src/utils/environment.ts`. La URL del API se puede sobreescribir con `VITE_API_BASE_URL` (ver `Frontend/.env.example`).
+Abrir [http://localhost:5173](http://localhost:5173). El `redirectUri` de MSAL es el origen actual y está registrado en Entra para localhost y para la URL pública del gateway. El client ID y el tenant viven en `Frontend/src/utils/environment.ts`. La URL del API se define con `VITE_API_BASE_URL` (ver `Frontend/.env.example`).
 
-> **Modo demo:** `environment.ts` apunta al API Gateway de AWS para que el frontend local consuma la nube. Para apuntar a otro gateway se define `VITE_API_BASE_URL` o se edita el valor por defecto.
+> **Variable obligatoria:** `VITE_API_BASE_URL` no tiene fallback. El build de producción falla si falta. En local se define en `Frontend/.env` o en la sesión antes de ejecutar Vite.
 
 > **Frontend en la nube:** el `dist` se sirve por nginx en la EC2 y, como vía pública, por el mismo API Gateway. MSAL exige contexto seguro, así que la URL oficial es la del gateway HTTPS y no el HTTP directo de la EC2. Su redirect URI debe estar registrado en Entra junto al de localhost.
 
@@ -185,6 +185,14 @@ La URL pública se obtiene con:
 
 ```bash
 terraform -chdir=infra output -raw api_url
+```
+
+Build de producción:
+
+```powershell
+$env:VITE_API_BASE_URL = terraform -chdir=infra output -raw api_url
+cd Frontend
+npm run build
 ```
 
 Accesos locales:
