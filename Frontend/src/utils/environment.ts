@@ -1,3 +1,9 @@
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+
+if (!apiBaseUrl) {
+    throw new Error("Falta VITE_API_BASE_URL. Definir con: terraform -chdir=infra output -raw api_url")
+}
+
 export const environment = {
 
     production: false,
@@ -9,5 +15,5 @@ export const environment = {
         redirectUri: window.location.origin
     },
 
-    apiBaseUrl: import.meta.env.VITE_API_BASE_URL || "https://z8bmmvfdwh.execute-api.us-east-1.amazonaws.com"
+    apiBaseUrl
 }
