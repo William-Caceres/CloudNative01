@@ -33,6 +33,11 @@ mvn_out.txt
 node_modules/
 **/node_modules/
 
+# Artefactos de pruebas
+coverage/
+playwright-report/
+test-results/
+
 # VS Code
 .vscode/
 
