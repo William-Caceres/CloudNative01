@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react'
 import { obtenerServicio } from '../services/servicioService'
 import { useNavigate } from 'react-router-dom'
-
-function formatearPrecio(valor) {
-    return new Intl.NumberFormat('es-CL').format(valor)
-}
+import { formatearPrecio } from '../utils/format'
 
 function Servicios_detalle() {
 

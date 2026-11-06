@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { obtenerDashboard } from '../services/bffService'
-
-function formatearPrecio(valor) {
-    return new Intl.NumberFormat('es-CL').format(valor)
-}
+import { formatearPrecio } from '../utils/format'
 
 function Reservas() {
 

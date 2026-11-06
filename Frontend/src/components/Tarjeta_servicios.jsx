@@ -2,10 +2,7 @@ import { useEffect, useState } from 'react'
 import { obtenerServicio, eliminarServicio } from '../services/servicioService'
 import { useNavigate } from 'react-router-dom'
 import Modificar_servicios from './Modificar_servicios'
-
-function formatearPrecio(valor) {
-    return new Intl.NumberFormat('es-CL').format(valor)
-}
+import { formatearPrecio } from '../utils/format'
 
 function Tarjeta_servicios({ servicio: inicial, admin }) {
 
