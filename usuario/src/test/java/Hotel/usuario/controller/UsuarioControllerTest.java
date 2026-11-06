@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -13,7 +14,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import Hotel.usuario.entity.Usuario;
+import Hotel.usuario.exception.BusinessRuleException;
+import Hotel.usuario.exception.EntidadNoEncontradaException;
 import Hotel.usuario.service.UsuarioService;
+import org.springframework.http.HttpStatus;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -140,6 +144,62 @@ class UsuarioControllerTest {
                 .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nombre\":\"Nombre\",\"correo\":\"a@b.cl\",\"a_paterno\":\"x\",\"rut\":1,\"dv_rut\":\"1\"}"))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void getInexistenteDevuelve404User005() throws Exception {
+        when(ser.u_recuperar(999)).thenThrow(new EntidadNoEncontradaException("USER-005", "No existe"));
+        mvc.perform(get("/api/v1/usuario/get/999")
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath(JSON_CODE).value("USER-005"));
+    }
+
+    @Test
+    void meSinCorreoDevuelve401Auth004() throws Exception {
+        mvc.perform(get("/api/v1/usuario/me")
+                .with(jwt()))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath(JSON_CODE).value("AUTH-004"));
+    }
+
+    @Test
+    void errorNoControladoDevuelve500Sys001() throws Exception {
+        when(ser.u_listar()).thenThrow(new RuntimeException("fallo inesperado"));
+        mvc.perform(get(PATH_LIST)
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
+            .andExpect(status().isInternalServerError())
+            .andExpect(jsonPath(JSON_CODE).value("SYS-001"));
+    }
+
+    @Test
+    void mediaTypeNoSoportadoDevuelve415() throws Exception {
+        mvc.perform(put(PATH_PUT)
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN)))
+                .contentType(MediaType.TEXT_PLAIN)
+                .content("texto"))
+            .andExpect(status().isUnsupportedMediaType())
+            .andExpect(jsonPath(JSON_CODE).value("VALID-002"));
+    }
+
+    @Test
+    void reglaDeNegocioDevuelve409() throws Exception {
+        when(ser.u_modificar(eq(1), any(Usuario.class)))
+                .thenThrow(new BusinessRuleException("USER-007", HttpStatus.CONFLICT, "Conflicto"));
+        mvc.perform(put(PATH_PUT)
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nombre\":\"Nombre\",\"correo\":\"a@b.cl\",\"a_paterno\":\"x\",\"rut\":1,\"dv_rut\":\"1\"}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath(JSON_CODE).value("USER-007"));
+    }
+
+    @Test
+    void deleteConAdminDevuelve200() throws Exception {
+        when(ser.u_retirar(1)).thenReturn(true);
+        mvc.perform(delete("/api/v1/usuario/delete/1")
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
             .andExpect(status().isOk());
     }
 }
