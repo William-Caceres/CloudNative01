@@ -6,6 +6,7 @@ function Servicios() {
 
     const [servicios, setServicios] = useState([])
     const [error, setError] = useState(null)
+    const [cargando, setCargando] = useState(true)
 
     useEffect(()=>{
         const cargarServicios = async() => {
@@ -13,6 +14,8 @@ function Servicios() {
                 setServicios(await listarServicios())
             } catch (e) {
                 setError(e?.response?.data?.message || e.message)
+            } finally {
+                setCargando(false)
             }
         }
         cargarServicios()
@@ -20,7 +23,9 @@ function Servicios() {
 
     return(
         <>
+        {cargando && <p>Cargando servicios...</p>}
         {error && <p className="text-danger">No se pudieron cargar los servicios: {error}</p>}
+        {!cargando && !error && servicios.length === 0 && <p>No hay servicios disponibles.</p>}
         <section className="row m-0">
             {servicios.map((s)=>(
                 <Tarjeta_servicios servicio={s} key={s.id}/>
