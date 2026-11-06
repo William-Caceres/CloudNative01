@@ -1,6 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
 import Inicio from '../pages/Inicio'
-import Registrarse from '../pages/Registrarse'
 import Login from '../pages/Login'
 import Mi_cuenta from '../pages/Mi_cuenta'
 import Servicios from '../pages/Servicios'
@@ -13,7 +12,6 @@ import RequireAuth from '../auth/RequireAuth'
 const RouterConfig = () => (
     <Routes>
         <Route path="/" element={<Inicio/>}/>
-        <Route path="/registro" element={<Registrarse/>}/>
         <Route path="/login" element={<Login/>}/>
         <Route path="/mi_cuenta" element={<RequireAuth><Mi_cuenta/></RequireAuth>}/>
         <Route path="/servicios" element={<RequireAuth><Servicios/></RequireAuth>}/>

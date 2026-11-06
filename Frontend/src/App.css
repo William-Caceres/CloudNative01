@@ -1,50 +1,686 @@
-.div_style{
-  background-color: #930087;
-  color: #ffffff;
-  border: solid 1px #ffffff;
-  padding: 3rem;
-  margin: 5%;
-}
-.navbar_style{
-  background: #930087;
-  margin: 0;
-  padding: 8px;
-}
-.pad-0{
-  padding: 0 !important;
-  border-bottom: solid 1px #ffffff;
-}
-.nav_link_style{
-  color: #ffffff !important;
-}
-.nav_link_style:hover{
-  text-decoration: underline;
-}
-.force_c_white{color:#ffffff !important}
-.force_border{
-  border: solid 1px #ffffff !important;
-  border-radius: 1px !important;
-}
-
-.card_black_bg{
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-
+.gh-app {
+  min-height: 100vh;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+}
+
+.gh-main {
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 40px 0 64px;
+  flex: 1;
+}
+
+.gh-footer {
+  border-top: 1px solid var(--gh-line);
+  color: var(--gh-muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 24px;
+}
+
+.gh-nav {
+  background: var(--gh-navy);
+  color: var(--gh-white);
+}
+
+.gh-nav-inner {
+  width: min(1180px, calc(100% - 48px));
+  min-height: 74px;
+  margin: 0 auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 24px;
 }
-.form_card_size{
-  max-width: 450px;
-  max-height: 95vh;
-  width: 95vw;
+
+.gh-brand-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.gh-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--gh-white);
+  flex-shrink: 0;
+}
+
+.gh-brand-mark {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--gh-gold-light);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--gh-gold-light);
+  font-family: var(--gh-font-display);
+  font-size: 16px;
+  letter-spacing: -0.06em;
+}
+
+.gh-brand-text {
+  display: grid;
+  gap: 1px;
+}
+
+.gh-brand-text strong {
+  font-family: var(--gh-font-display);
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+.gh-brand-text span {
+  color: var(--gh-gold-light);
+  font-size: 8px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.gh-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.gh-nav-link {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 253, 249, 0.74);
+  text-decoration: none;
+  font-size: 13px;
+  padding: 6px 0;
+  transition: color 160ms ease, border-color 160ms ease;
+  border-bottom: 1px solid transparent;
+}
+
+.gh-nav-link:hover,
+.gh-nav-link:focus-visible {
+  color: var(--gh-white);
+}
+
+.gh-nav-link.active {
+  color: var(--gh-white);
+  border-bottom-color: var(--gh-gold-light);
+}
+
+.gh-user-pill {
+  border: 1px solid rgba(255, 253, 249, 0.24);
+  border-radius: 999px;
+  padding: 7px 12px;
+  color: var(--gh-white);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.gh-page {
+  display: grid;
+  gap: 28px;
+}
+
+.gh-page-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--gh-line);
+}
+
+.gh-page-head h1,
+.gh-detail h1 {
+  margin: 0;
+  font-family: var(--gh-font-display);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.gh-page-head p {
+  margin: 6px 0 0;
+  color: var(--gh-muted);
+  font-size: 14px;
+}
+
+.gh-eyebrow {
+  margin: 0 0 12px;
+  color: var(--gh-gold);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.gh-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+  gap: 28px;
+  background: var(--gh-navy);
+  color: var(--gh-white);
+  padding: 64px 40px;
+}
+
+.gh-hero h1 {
+  max-width: 720px;
+  margin: 0;
+  font-family: var(--gh-font-display);
+  font-size: clamp(2.3rem, 5.5vw, 4.8rem);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 1.02;
+}
+
+.gh-hero p {
+  max-width: 560px;
+  color: rgba(255, 253, 249, 0.74);
+  line-height: 1.65;
+}
+
+.gh-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.gh-hero-aside {
+  align-self: end;
+  border: 1px solid rgba(255, 253, 249, 0.2);
+  padding: 22px;
+}
+
+.gh-hero-aside strong {
+  display: block;
+  margin-top: 16px;
+  font-family: var(--gh-font-display);
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.gh-hero-aside p {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+.gh-divider {
+  height: 1px;
+  background: rgba(255, 253, 249, 0.2);
+  margin: 16px 0;
+}
+
+.gh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--gh-radius);
+  text-decoration: none;
+  font-size: 13px;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.gh-btn:focus-visible {
+  outline: 2px solid var(--gh-gold);
+  outline-offset: 2px;
+}
+
+.gh-btn-primary {
+  background: var(--gh-navy);
+  color: var(--gh-white);
+}
+
+.gh-btn-primary:hover {
+  background: #173550;
+}
+
+.gh-btn-secondary {
+  background: transparent;
+  border-color: var(--gh-line);
+  color: var(--gh-ink);
+}
+
+.gh-btn-secondary:hover {
+  border-color: var(--gh-navy);
+}
+
+.gh-btn-light {
+  background: var(--gh-white);
+  color: var(--gh-navy);
+}
+
+.gh-btn-light:hover {
+  background: var(--gh-ivory);
+}
+
+.gh-btn-outline-light {
+  background: transparent;
+  border-color: rgba(255, 253, 249, 0.4);
+  color: var(--gh-white);
+}
+
+.gh-btn-outline-light:hover {
+  border-color: var(--gh-gold-light);
+}
+
+.gh-btn-danger {
+  background: transparent;
+  border-color: rgba(164, 38, 44, 0.4);
+  color: var(--gh-error);
+}
+
+.gh-btn-danger:hover {
+  background: rgba(164, 38, 44, 0.08);
+}
+
+.gh-btn-small {
+  min-height: 36px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.gh-section {
+  display: grid;
+  gap: 18px;
+}
+
+.gh-section-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.gh-section-head h2 {
+  margin: 0;
+  font-family: var(--gh-font-display);
+  font-size: clamp(1.6rem, 3vw, 2.3rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.gh-section-head p {
+  margin: 0;
+  color: var(--gh-muted);
+  font-size: 13px;
+}
+
+.gh-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.gh-grid-tight {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.gh-card {
+  background: var(--gh-surface);
+  border: 1px solid var(--gh-line);
+  color: var(--gh-ink);
+  padding: 22px;
+}
+
+.gh-card h2,
+.gh-card h3 {
+  margin: 14px 0 8px;
+  font-family: var(--gh-font-display);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.gh-card p {
+  margin: 0;
+  color: var(--gh-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.gh-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gh-line);
+}
+
+.gh-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.gh-price {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-top: 16px;
+}
+
+.gh-price strong {
+  font-family: var(--gh-font-display);
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.gh-price span {
+  color: var(--gh-muted);
+  font-size: 11px;
+}
+
+.gh-tag {
+  display: inline-block;
+  border: 1px solid var(--gh-line);
+  padding: 4px 8px;
+  color: var(--gh-muted);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.gh-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: rgba(47, 107, 79, 0.12);
+  color: var(--gh-success);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.gh-badge-pending {
+  background: rgba(169, 108, 31, 0.12);
+  color: var(--gh-warning);
+}
+
+.gh-badge-neutral {
+  background: rgba(86, 96, 107, 0.1);
+  color: var(--gh-muted);
+}
+
+.gh-empty,
+.gh-loading,
+.gh-error {
+  border: 1px solid var(--gh-line);
+  background: var(--gh-surface);
+  padding: 20px 22px;
+  color: var(--gh-muted);
+  font-size: 14px;
+}
+
+.gh-error {
+  border-color: rgba(164, 38, 44, 0.35);
+  color: var(--gh-error);
+}
+
+.gh-auth {
+  min-height: 560px;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  border: 1px solid var(--gh-line);
+  background: var(--gh-surface);
+  box-shadow: var(--gh-shadow);
+}
+
+.gh-auth-panel {
+  background: var(--gh-navy);
+  color: var(--gh-white);
+  padding: 48px 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.gh-auth-panel h1 {
+  margin: 0;
+  font-family: var(--gh-font-display);
+  font-size: clamp(2.2rem, 4vw, 3.6rem);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.gh-auth-panel p {
+  max-width: 440px;
+  color: rgba(255, 253, 249, 0.7);
+}
+
+.gh-auth-card {
+  padding: 48px 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+.gh-auth-card h2 {
+  margin: 0;
+  font-family: var(--gh-font-display);
+  font-size: 30px;
+  font-weight: 400;
+}
+
+.gh-auth-card p {
+  margin: 0;
+  color: var(--gh-muted);
+  font-size: 14px;
+}
+
+.gh-auth-card .gh-btn {
+  margin-top: 12px;
+}
+
+.gh-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.gh-detail-list {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0 0;
+}
+
+.gh-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--gh-line);
+  font-size: 14px;
+}
+
+.gh-detail-row span {
+  color: var(--gh-muted);
+}
+
+.gh-detail-row strong {
+  font-weight: 600;
+}
+
+.gh-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(11, 27, 43, 0.62);
+}
+
+.gh-modal {
+  width: min(520px, 100%);
+  max-height: min(92vh, 760px);
   overflow-y: auto;
+  background: var(--gh-surface);
+  border: 1px solid var(--gh-line);
+  padding: 26px;
+  box-shadow: var(--gh-shadow);
 }
-.stuff_mwidth{
+
+.gh-modal.collapsed {
+  display: none;
+}
+
+.gh-modal h2 {
+  margin: 0 0 10px;
+  font-family: var(--gh-font-display);
+  font-size: 28px;
+  font-weight: 400;
+}
+
+.gh-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.gh-field label {
+  color: var(--gh-muted);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.gh-field input,
+.gh-field select,
+.gh-field textarea {
   width: 100%;
-  max-width: 100%;
+  border: 1px solid var(--gh-line);
+  border-radius: var(--gh-radius);
+  background: var(--gh-white);
+  color: var(--gh-ink);
+  padding: 11px 12px;
+}
+
+.gh-field textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.gh-field input:focus,
+.gh-field select:focus,
+.gh-field textarea:focus {
+  outline: 2px solid var(--gh-gold);
+  outline-offset: 2px;
+  border-color: var(--gh-gold);
+}
+
+.gh-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  color: var(--gh-muted);
+  font-size: 13px;
+}
+
+.gh-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--gh-navy);
+}
+
+.gh-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.gh-error-text {
+  color: var(--gh-error);
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .gh-hero,
+  .gh-auth {
+    grid-template-columns: 1fr;
+  }
+
+  .gh-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gh-profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gh-nav-inner {
+    padding: 14px 0;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .gh-nav-links {
+    order: 3;
+    width: 100%;
+  }
+}
+
+@media (max-width: 620px) {
+  .gh-main {
+    width: calc(100% - 32px);
+    padding-top: 24px;
+  }
+
+  .gh-nav-inner {
+    width: calc(100% - 32px);
+  }
+
+  .gh-hero {
+    padding: 40px 22px;
+  }
+
+  .gh-auth-panel,
+  .gh-auth-card {
+    padding: 32px 22px;
+  }
+
+  .gh-grid,
+  .gh-grid-tight {
+    grid-template-columns: 1fr;
+  }
+
+  .gh-page-head {
+    display: grid;
+    align-items: start;
+  }
+
+  .gh-section-head {
+    display: grid;
+    align-items: start;
+  }
+
+  .gh-card-footer {
+    display: grid;
+    align-items: start;
+  }
+
+  .gh-detail-row {
+    display: grid;
+    gap: 2px;
+  }
 }

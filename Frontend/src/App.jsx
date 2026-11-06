@@ -6,10 +6,15 @@ import "./App.css"
 function App(){
 
   return(
-    <>
+    <div className="gh-app">
       <Navbar />
-      <RouterConfig />
-    </>
+      <main className="gh-main">
+        <RouterConfig />
+      </main>
+      <footer className="gh-footer">
+        Grand Hotel Group · Hospitality, curated.
+      </footer>
+    </div>
   )
 }
 

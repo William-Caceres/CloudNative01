@@ -37,7 +37,7 @@ describe('Tarjeta_servicios', () => {
     renderCard()
     expect(screen.getByRole('heading', { name: 'Suite Presidencial' })).toBeInTheDocument()
     expect(screen.getByText('Vista al jardín')).toBeInTheDocument()
-    expect(screen.getByText('250000')).toBeInTheDocument()
+    expect(screen.getByText(/\$250\.000/)).toBeInTheDocument()
   })
 
   it('guarda el id y navega al detalle', async () => {

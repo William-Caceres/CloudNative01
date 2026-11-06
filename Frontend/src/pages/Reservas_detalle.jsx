@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { obtenerDashboard } from '../services/bffService'
 
+function formatearPrecio(valor) {
+    return new Intl.NumberFormat('es-CL').format(valor)
+}
+
 function Reservas_detalle() {
 
     const [reserva, setReserva] = useState(null)
@@ -33,21 +37,35 @@ function Reservas_detalle() {
     },[])
 
     return(
-        <article className="div_style">
-            <h3>Detalle de reserva</h3>
-            {error && <p className="text-danger">{error}</p>}
+        <section className="gh-page">
+            <header className="gh-page-head">
+                <div>
+                    <p className="gh-eyebrow">Estancia</p>
+                    <h1>Detalle de reserva</h1>
+                </div>
+                {reserva && (
+                    <span className={`gh-badge ${reserva.estadoPago === 'CONFIRMADO' ? '' : 'gh-badge-pending'}`}>
+                        {reserva.estadoPago || 'PENDIENTE'}
+                    </span>
+                )}
+            </header>
+            {error && <p className="gh-error">{error}</p>}
             {reserva && (
-                <>
-                <p><strong>N° reserva: </strong>{reserva.id}</p>
-                <p><strong>Desde: </strong>{reserva.fechaReserva}</p>
-                <p><strong>Hasta: </strong>{reserva.fechaTermino}</p>
-                <p><strong>Tipo: </strong>{reserva.tipoReserva}</p>
-                <p><strong>Personas: </strong>{reserva.cantidadPersonas}</p>
-                <p className="mb-1"><strong>Valor final: </strong>{reserva.valorFinal}</p>
-                </>
+                <article className="gh-card">
+                    <div className="gh-detail-list">
+                        <div className="gh-detail-row"><span>N° reserva</span><strong>{reserva.id}</strong></div>
+                        <div className="gh-detail-row"><span>Desde</span><strong>{reserva.fechaReserva}</strong></div>
+                        <div className="gh-detail-row"><span>Hasta</span><strong>{reserva.fechaTermino}</strong></div>
+                        <div className="gh-detail-row"><span>Tipo</span><strong>{reserva.tipoReserva}</strong></div>
+                        <div className="gh-detail-row"><span>Personas</span><strong>{reserva.cantidadPersonas}</strong></div>
+                        <div className="gh-detail-row"><span>Valor final</span><strong>${formatearPrecio(reserva.valorFinal)}</strong></div>
+                    </div>
+                    <div className="gh-card-actions">
+                        <button className="gh-btn gh-btn-secondary" onClick={()=>navegar("/mis_reservas")}>Volver</button>
+                    </div>
+                </article>
             )}
-            <button className="mt-3" onClick={()=>navegar("/mis_reservas")}>Volver</button>
-        </article>
+        </section>
     )
 }
 

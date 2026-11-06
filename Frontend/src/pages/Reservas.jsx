@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { obtenerDashboard } from '../services/bffService'
 
+function formatearPrecio(valor) {
+    return new Intl.NumberFormat('es-CL').format(valor)
+}
+
 function Reservas() {
 
     const [reservas, setReservas] = useState([])
@@ -31,27 +35,42 @@ function Reservas() {
     }
 
     return(
-        <>
-        <h1>Mis Reservas</h1>
-        {cargando && <p>Cargando reservas...</p>}
-        {error && <p className="text-danger">No se pudieron cargar las reservas: {error}</p>}
-        {!cargando && !error && reservas.length === 0 && <p>No tienes reservas registradas.</p>}
-        <section className="row m-0">
-            {reservas.map((r)=>(
-                <article className="col-xl-3 col-lg-4 col-md-6 col-sm-12 col-xs-12" key={r.id}>
-                    <section className="div_style p-4">
-                        <h3>Reserva #{r.id}</h3>
-                        <p className="mb-0"><strong>Desde: </strong>{r.fechaReserva}</p>
-                        <p className="mb-0"><strong>Hasta: </strong>{r.fechaTermino}</p>
-                        <p className="mb-0"><strong>Tipo: </strong>{r.tipoReserva}</p>
-                        <p className="mb-0"><strong>Personas: </strong>{r.cantidadPersonas}</p>
-                        <p className="mb-1"><strong>Valor: </strong>{r.valorFinal}</p>
-                        <button className="mt-3" onClick={()=>verDetalle(r.id)}>Ver detalle</button>
-                    </section>
-                </article>
-            ))}
+        <section className="gh-page">
+            <header className="gh-page-head">
+                <div>
+                    <p className="gh-eyebrow">Su estancia</p>
+                    <h1>Mis Reservas</h1>
+                    <p>Consulte el detalle y estado de sus reservas.</p>
+                </div>
+                <span className="gh-badge gh-badge-neutral">{reservas.length} registradas</span>
+            </header>
+            {cargando && <p className="gh-loading">Cargando reservas...</p>}
+            {error && <p className="gh-error">No se pudieron cargar las reservas: {error}</p>}
+            {!cargando && !error && reservas.length === 0 && <p className="gh-empty">No tienes reservas registradas.</p>}
+            <div className="gh-grid">
+                {reservas.map((r)=>(
+                    <article className="gh-card" key={r.id}>
+                        <div className="gh-card-footer">
+                            <span className="gh-tag">Reserva</span>
+                            <span className={`gh-badge ${r.estadoPago === 'CONFIRMADO' ? '' : 'gh-badge-pending'}`}>
+                                {r.estadoPago || 'PENDIENTE'}
+                            </span>
+                        </div>
+                        <h2>Reserva #{r.id}</h2>
+                        <div className="gh-detail-list">
+                            <div className="gh-detail-row"><span>Desde</span><strong>{r.fechaReserva}</strong></div>
+                            <div className="gh-detail-row"><span>Hasta</span><strong>{r.fechaTermino}</strong></div>
+                            <div className="gh-detail-row"><span>Tipo</span><strong>{r.tipoReserva}</strong></div>
+                            <div className="gh-detail-row"><span>Personas</span><strong>{r.cantidadPersonas}</strong></div>
+                            <div className="gh-detail-row"><span>Valor</span><strong>${formatearPrecio(r.valorFinal)}</strong></div>
+                        </div>
+                        <div className="gh-card-actions">
+                            <button className="gh-btn gh-btn-secondary gh-btn-small" onClick={()=>verDetalle(r.id)}>Ver detalle</button>
+                        </div>
+                    </article>
+                ))}
+            </div>
         </section>
-        </>
     )
 }
 

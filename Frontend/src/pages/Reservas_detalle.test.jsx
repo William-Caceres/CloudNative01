@@ -33,7 +33,7 @@ describe('Reservas_detalle', () => {
     )
     expect(await screen.findByText('Detalle de reserva')).toBeInTheDocument()
     expect(screen.getByText('2026-11-10')).toBeInTheDocument()
-    expect(screen.getByText('120000')).toBeInTheDocument()
+    expect(screen.getByText(/120\.000/)).toBeInTheDocument()
   })
 
   it('muestra error si no encuentra la reserva', async () => {

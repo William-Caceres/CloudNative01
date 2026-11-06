@@ -21,21 +21,27 @@ function Panel_admin() {
     },[showFormulario])
 
     return(
-        <>
-        <section>
-            <h1>Panel admin</h1>
-            <button onClick={()=>setShowFormulario(true)}>Registrar servicio</button>
-            {showFormulario &&
-                <Formulario_servicios show={setShowFormulario}/>
-            }
+        <section className="gh-page">
+            <header className="gh-page-head">
+                <div>
+                    <p className="gh-eyebrow">Administración</p>
+                    <h1>Panel admin</h1>
+                    <p>Gestione el catálogo de servicios del hotel.</p>
+                </div>
+                <button className="gh-btn gh-btn-primary" onClick={()=>setShowFormulario(true)}>Registrar servicio</button>
+            </header>
+            {error && <p className="gh-error">No se pudieron cargar los servicios: {error}</p>}
+            <div className="gh-section-head">
+                <h2>Servicios publicados</h2>
+                <span className="gh-badge gh-badge-neutral">{servicios.length} activos</span>
+            </div>
+            <div className="gh-grid">
+                {servicios.map((s)=>(
+                    <Tarjeta_servicios servicio={s} key={s.id} admin/>
+                ))}
+            </div>
+            {showFormulario && <Formulario_servicios show={setShowFormulario}/>}
         </section>
-        {error && <p className="text-danger">No se pudieron cargar los servicios: {error}</p>}
-        <section className="row m-0">
-            {servicios.map((s)=>(
-                <Tarjeta_servicios servicio={s} key={s.id} admin/>
-            ))}
-        </section>
-        </>
     )
 }
 

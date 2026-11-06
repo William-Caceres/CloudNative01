@@ -1,62 +1,53 @@
-import { Link } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { useIsAuthenticated, useMsal } from '@azure/msal-react'
+import BrandMark from '../components/BrandMark'
 import { getRoles } from '../auth/authUtils'
+
+function navClass({ isActive }) {
+  return isActive ? 'gh-nav-link active' : 'gh-nav-link'
+}
 
 function Navbar() {
 
     const isAuthenticated = useIsAuthenticated()
     const { instance } = useMsal()
     const account = instance.getAllAccounts()[0]
-    const isAdmin = getRoles(account).includes("Admin")
+    const roles = getRoles(account)
+    const isAdmin = roles.includes('Admin')
 
     const cerrarSesion = () => {
         instance.logoutRedirect()
     }
 
     return(
-        <nav className="navbar navbar-expand-lg bg-body-tertiary pad-0">
-            <header className="container-fluid navbar_style">
+        <header className="gh-nav">
+            <div className="gh-nav-inner">
+                <Link className="gh-brand-link" to="/" aria-label="Grand Hotel Group, inicio">
+                    <BrandMark />
+                </Link>
 
-                <Link className="navbar-brand force_c_white" to="/">Grand Hotel</Link>
-                <button className="navbar-toggler force_c_white force_border" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
-                    <span className="force_c_white">=</span>
-                </button>
+                <nav className="gh-nav-links" aria-label="Navegación principal">
+                    <NavLink to="/" end className={navClass}>Inicio</NavLink>
+                    <NavLink to="/servicios" className={navClass}>Servicios</NavLink>
+                    {isAuthenticated ? (
+                        <>
+                            <NavLink to="/mis_reservas" className={navClass}>Mis Reservas</NavLink>
+                            <NavLink to="/mi_cuenta" className={navClass}>Mi cuenta</NavLink>
+                            {isAdmin && <NavLink to="/PanelAdministradores" className={navClass}>Panel admin</NavLink>}
+                            <button type="button" className="gh-nav-link" onClick={cerrarSesion}>Cerrar sesión</button>
+                        </>
+                    ) : (
+                        <NavLink to="/login" className={navClass}>Iniciar sesión</NavLink>
+                    )}
+                </nav>
 
-                <section className="collapse navbar-collapse" id="navbarNavDropdown">
-                    <ul className="navbar-nav">
-                        <li className="nav-item">
-                            <Link className="nav-link active nav_link_style" aria-current="page" to="/">Inicio</Link>
-                        </li>
-                        <li className="nav-item">
-                            <Link className="nav-link active nav_link_style" aria-current="page" to="/servicios">Servicios disponibles</Link>
-                        </li>
-                        {isAuthenticated ? (
-                            <>
-                            <li className="nav-item">
-                                <Link className="nav-link active nav_link_style" aria-current="page" to="/mis_reservas">Mis Reservas</Link>
-                            </li>
-                            <li className="nav-item">
-                                <Link className="nav-link active nav_link_style" aria-current="page" to="/mi_cuenta">Mi cuenta</Link>
-                            </li>
-                            {isAdmin && (
-                            <li className="nav-item">
-                                <Link className="nav-link active nav_link_style" aria-current="page" to="/PanelAdministradores">Panel admin</Link>
-                            </li>
-                            )}
-                            <li className="nav-item">
-                                <Link className="nav-link active nav_link_style" aria-current="page" to="/" onClick={cerrarSesion}>Cerrar sesión</Link>
-                            </li>
-                            </>
-                        ) : (
-                            <li className="nav-item">
-                                <Link className="nav-link active nav_link_style" aria-current="page" to="/login">Iniciar sesión</Link>
-                            </li>
-                        )}
-                    </ul>
-                </section>
-
-            </header>
-        </nav>
+                {isAuthenticated && account && (
+                    <span className="gh-user-pill" title={account.username}>
+                        {roles[0] || 'Huésped'} · {account.name || account.username}
+                    </span>
+                )}
+            </div>
+        </header>
     )
 }
 

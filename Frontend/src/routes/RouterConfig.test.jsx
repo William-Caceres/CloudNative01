@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest'
 import RouterConfig from './RouterConfig'
 
 vi.mock('../pages/Inicio', () => ({ default: () => <div>Inicio mock</div> }))
-vi.mock('../pages/Registrarse', () => ({ default: () => <div>Registro mock</div> }))
 vi.mock('../pages/Login', () => ({ default: () => <div>Login mock</div> }))
 vi.mock('../pages/Mi_cuenta', () => ({ default: () => <div>Cuenta mock</div> }))
 vi.mock('../pages/Servicios', () => ({ default: () => <div>Servicios mock</div> }))
@@ -17,7 +16,6 @@ vi.mock('../auth/RequireAuth', () => ({ default: ({ children }) => <>{children}<
 describe('RouterConfig', () => {
   it.each([
     ['/', 'Inicio mock'],
-    ['/registro', 'Registro mock'],
     ['/login', 'Login mock'],
     ['/mi_cuenta', 'Cuenta mock'],
     ['/servicios', 'Servicios mock'],

@@ -22,16 +22,24 @@ function Servicios() {
     },[])
 
     return(
-        <>
-        {cargando && <p>Cargando servicios...</p>}
-        {error && <p className="text-danger">No se pudieron cargar los servicios: {error}</p>}
-        {!cargando && !error && servicios.length === 0 && <p>No hay servicios disponibles.</p>}
-        <section className="row m-0">
-            {servicios.map((s)=>(
-                <Tarjeta_servicios servicio={s} key={s.id}/>
-            ))}
+        <section className="gh-page">
+            <header className="gh-page-head">
+                <div>
+                    <p className="gh-eyebrow">Catálogo seleccionado</p>
+                    <h1>Servicios</h1>
+                    <p>Experiencias pensadas para cada momento de la estancia.</p>
+                </div>
+                <span className="gh-badge gh-badge-neutral">{servicios.length} disponibles</span>
+            </header>
+            {cargando && <p className="gh-loading">Cargando servicios...</p>}
+            {error && <p className="gh-error">No se pudieron cargar los servicios: {error}</p>}
+            {!cargando && !error && servicios.length === 0 && <p className="gh-empty">No hay servicios disponibles.</p>}
+            <div className="gh-grid">
+                {servicios.map((s)=>(
+                    <Tarjeta_servicios servicio={s} key={s.id}/>
+                ))}
+            </div>
         </section>
-        </>
     )
 }
 

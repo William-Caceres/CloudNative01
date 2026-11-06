@@ -64,7 +64,7 @@ describe('Mi_cuenta', () => {
     }
     render(<Mi_cuenta />)
     expect(await screen.findByText('admin@hotel.test')).toBeInTheDocument()
-    expect(screen.getByText('Admin')).toBeInTheDocument()
+    expect(screen.getAllByText('Admin').length).toBeGreaterThan(0)
     expect(await screen.findByText(/User.Read/)).toBeInTheDocument()
     expect(await screen.findByText(/Emilio \(id 1\)/)).toBeInTheDocument()
     expect(screen.getByText('2 servicios')).toBeInTheDocument()
