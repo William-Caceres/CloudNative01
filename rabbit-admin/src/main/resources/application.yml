@@ -23,6 +23,20 @@ spring:
         acknowledge-mode: manual
         prefetch: 1
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+        max.block.ms: 5000
+
 server:
   port: ${SERVER_PORT:8085}
 
@@ -46,3 +60,11 @@ hotel:
       reservaCreada: reserva.creada
       servicioTodos: servicio.*
       ticketDirecto: ticket.generar
+  kafka:
+    topics:
+      reservas: reservas
+      pagos: pagos
+      reservas-dlt: reservas.DLT
+      pagos-dlt: pagos.DLT
+    crear-topicos: true
+    consumidores-activos: true
