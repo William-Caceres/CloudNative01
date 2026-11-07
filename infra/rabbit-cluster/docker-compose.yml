@@ -14,7 +14,7 @@ services:
     volumes:
       - rabbit1-data:/var/lib/rabbitmq
     ports:
-      # 5672: lo consumen reserva, servicio y rabbit-admin dentro de la VPC.
+      # 5672: lo consumen reserva, servicio y broker-admin dentro de la VPC.
       # 15672: dashboard, NUNCA se abre en el Security Group (solo tunel SSH).
       - "5672:5672"
       - "15672:15672"

@@ -8,8 +8,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Converter JSON del productor, identico al de rabbit-admin para que los
- * consumidores entiendan los eventos. La topologia la declara rabbit-admin.
+ * Converter JSON del productor, identico al de broker-admin para que los
+ * consumidores entiendan los eventos. La topologia la declara broker-admin.
  */
 @Configuration
 public class MensajeriaConfig {

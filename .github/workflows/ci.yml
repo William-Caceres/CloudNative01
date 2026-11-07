@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [usuario, reserva, servicio, bff, rabbit-admin]
+        module: [usuario, reserva, servicio, bff, broker-admin]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

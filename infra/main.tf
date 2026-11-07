@@ -17,7 +17,7 @@ provider "aws" {
 #  - usuario:  microservicio + MySQL (BD en la misma maquina = 1 EC2 menos)
 #  - reserva / servicio / bff: microservicio (reserva y servicio publican eventos)
 #  - cn-rabbit: cluster RabbitMQ de 2 nodos (docker compose)
-#  - cn-rabbit-admin: microservicio administrador de RabbitMQ (:8085)
+#  - cn-broker-admin: microservicio administrador de RabbitMQ/Kafka (:8085)
 #  - cn-kafka: cluster Kafka de 3 brokers + 3 ZooKeeper + Kafka UI
 # Para probar rapido
 # NOTA: los heredocs user_data van a columna 0 a proposito (cloud-init no tolera espacios antes del shebang).
@@ -27,6 +27,7 @@ locals {
     reserva        = { port = 8081 }
     servicio       = { port = 8082 }
     bff            = { port = 8084 }
+    "broker-admin" = { port = 8085 }
     "rabbit-admin" = { port = 8085 }
   }
   microservicios_app = {
@@ -36,7 +37,8 @@ locals {
   }
   microservicios_public_ip = merge(
     { usuario = aws_instance.usuario.public_ip },
-    { "rabbit-admin" = aws_instance.rabbit_admin.public_ip },
+    { "broker-admin" = aws_instance.broker_admin.public_ip },
+    { "rabbit-admin" = aws_instance.broker_admin.public_ip },
     { for k, v in aws_instance.microservicio : k => v.public_ip }
   )
   kafka_bootstrap_servers = join(",", [
@@ -465,8 +467,13 @@ EOT
   tags = { Name = "cn-rabbit", Project = "CloudNative01" }
 }
 
-# EC2 cn-rabbit-admin: microservicio administrador de RabbitMQ (:8085, EV2).
-resource "aws_instance" "rabbit_admin" {
+moved {
+  from = aws_instance.rabbit_admin
+  to   = aws_instance.broker_admin
+}
+
+# EC2 cn-broker-admin: microservicio administrador de RabbitMQ/Kafka (:8085).
+resource "aws_instance" "broker_admin" {
   ami                         = var.ami_id
   instance_type               = "t2.micro"
   key_name                    = aws_key_pair.ev2.key_name
@@ -476,14 +483,14 @@ resource "aws_instance" "rabbit_admin" {
 
   user_data = <<-EOT
 #!/bin/bash
-exec > /var/log/cn-rabbit-admin-bootstrap.log 2>&1
+exec > /var/log/cn-broker-admin-bootstrap.log 2>&1
 set -exuo pipefail
 dnf install -y java-21-amazon-corretto-devel
 mkdir -p /opt/apps
 chown ec2-user:ec2-user /opt/apps
-cat > /etc/systemd/system/cn-rabbit-admin.service <<UNIT
+cat > /etc/systemd/system/cn-broker-admin.service <<UNIT
 [Unit]
-Description=CloudNative microservicio rabbit-admin
+Description=CloudNative microservicio broker-admin
 After=network-online.target
 [Service]
 WorkingDirectory=/opt/apps
@@ -494,18 +501,18 @@ Environment=RABBITMQ_PASSWORD=${var.rabbit_password}
 Environment=KAFKA_BOOTSTRAP_SERVERS=${local.kafka_bootstrap_servers}
 Environment=SERVER_PORT=8085
 Environment=CORS_ORIGINS=${local.cors_origins_env}
-ExecStart=/usr/bin/java -jar /opt/apps/rabbit-admin-0.0.1-SNAPSHOT.jar
+ExecStart=/usr/bin/java -jar /opt/apps/broker-admin-0.0.1-SNAPSHOT.jar
 Restart=always
 RestartSec=5
 [Install]
 WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
-systemctl enable cn-rabbit-admin
-echo "Listo: sube /opt/apps/rabbit-admin-0.0.1-SNAPSHOT.jar por scp y ejecuta: systemctl start cn-rabbit-admin"
+systemctl enable cn-broker-admin
+echo "Listo: sube /opt/apps/broker-admin-0.0.1-SNAPSHOT.jar por scp y ejecuta: systemctl start cn-broker-admin"
 EOT
 
-  tags = { Name = "cn-rabbit-admin", Project = "CloudNative01" }
+  tags = { Name = "cn-broker-admin", Project = "CloudNative01" }
 }
 
 # EC2 cn-kafka: cluster Kafka de 3 brokers + 3 ZooKeeper + Kafka UI (EV3).
@@ -679,8 +686,12 @@ output "rabbit_public_ip" {
   value = aws_instance.cn_rabbit.public_ip
 }
 
+output "broker_admin_public_ip" {
+  value = aws_instance.broker_admin.public_ip
+}
+
 output "rabbit_admin_public_ip" {
-  value = aws_instance.rabbit_admin.public_ip
+  value = aws_instance.broker_admin.public_ip
 }
 
 output "kafka_private_ip" {

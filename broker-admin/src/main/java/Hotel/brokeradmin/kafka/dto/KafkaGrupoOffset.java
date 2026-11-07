@@ -1,0 +1,9 @@
+package Hotel.brokeradmin.kafka.dto;
+
+public record KafkaGrupoOffset(
+        String topic,
+        int particion,
+        long offsetConsumido,
+        long offsetFinal,
+        long lag) {
+}
