@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -25,8 +26,9 @@ public class ReservaController {
 
     @PostMapping("/post")
     @PreAuthorize("hasRole('ADMIN')")
-    public Reserva rc_guardar(@Valid @RequestBody Reserva req){
-        return ser.r_guardar(req);
+    public Reserva rc_guardar(@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody Reserva req){
+        return ser.r_guardar(req, idempotencyKey);
     }
 
     @GetMapping("/get/{id}")

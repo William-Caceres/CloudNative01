@@ -2,6 +2,7 @@ package Hotel.reserva.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -99,6 +100,18 @@ class ReservaControllerTest {
                 .content("{\"idUsuario\":1,\"fechaReserva\":\"2026-12-01\",\"fechaTermino\":\"2026-12-02\",\"tipoReserva\":\"habitacion\",\"cantidadPersonas\":1,\"valorFinal\":1000}")
                 .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
             .andExpect(status().isOk());
+    }
+
+    @Test
+    void postConIdempotencyKeyPropagaCabecera() throws Exception {
+        mvc.perform(post(PATH_POST)
+                .header("Idempotency-Key", "demo-key")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"idUsuario\":1,\"fechaReserva\":\"2026-12-01\",\"fechaTermino\":\"2026-12-02\",\"tipoReserva\":\"habitacion\",\"cantidadPersonas\":1,\"valorFinal\":1000}")
+                .with(jwt().authorities(new SimpleGrantedAuthority(ROLE_ADMIN))))
+            .andExpect(status().isOk());
+
+        verify(ser).r_guardar(any(Reserva.class), eq("demo-key"));
     }
 
     @Test
