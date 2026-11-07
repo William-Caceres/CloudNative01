@@ -684,3 +684,46 @@
     gap: 2px;
   }
 }
+
+.gh-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.gh-metric {
+  background: var(--gh-surface);
+  border: 1px solid var(--gh-line);
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.gh-metric span {
+  color: var(--gh-muted);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.gh-metric strong {
+  color: var(--gh-ink);
+  font-family: var(--gh-font-display);
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.gh-metric-alerta {
+  border-color: rgba(169, 108, 31, 0.45);
+}
+
+.gh-metric-alerta strong {
+  color: var(--gh-warning);
+}
+
+@media (max-width: 620px) {
+  .gh-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

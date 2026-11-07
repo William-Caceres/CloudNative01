@@ -55,6 +55,31 @@ export async function mockApi(page) {
       return
     }
 
+    if (url.pathname.endsWith('/broker-admin/kafka/summary')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          brokers: 3,
+          topics: 4,
+          grupos: 2,
+          lagTotal: 0,
+          reservasProcesadas: 7,
+          pagosProcesados: 5,
+          ultimoEvento: 'pago:evt-demo',
+          ultimoEventoEn: '2026-11-07T04:00:00Z',
+          detalleGrupos: [{ grupo: 'analytics-group', estado: 'STABLE', miembros: 3, lagTotal: 0 }],
+        }),
+      })
+      return
+    }
+
+    if (url.pathname.includes('/broker-admin/queues/')) {
+      const nombre = url.pathname.split('/').pop()
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ nombre, mensajes: 0, consumidores: 1 }) })
+      return
+    }
+
     await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
   })
 }

@@ -34,6 +34,7 @@ function Navbar() {
                             <NavLink to="/mis_reservas" className={navClass}>Mis Reservas</NavLink>
                             <NavLink to="/mi_cuenta" className={navClass}>Mi cuenta</NavLink>
                             {isAdmin && <NavLink to="/PanelAdministradores" className={navClass}>Panel admin</NavLink>}
+                            {isAdmin && <NavLink to="/mensajeria" className={navClass}>Mensajería</NavLink>}
                             <button type="button" className="gh-nav-link" onClick={cerrarSesion}>Cerrar sesión</button>
                         </>
                     ) : (

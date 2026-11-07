@@ -52,3 +52,15 @@ test('@visual panel admin desktop', async ({ page }) => {
   await page.goto('/PanelAdministradores')
   await expect(page).toHaveScreenshot('admin-1440.png')
 })
+
+test('mensajeria muestra Rabbit y Kafka en vivo', async ({ page }) => {
+  await page.goto('/mensajeria')
+  await expect(page.getByRole('heading', { name: 'Mensajería' })).toBeVisible()
+  await expect(page.getByText('analytics-group')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Notificaciones' })).toBeVisible()
+})
+
+test('@visual mensajeria desktop', async ({ page }) => {
+  await page.goto('/mensajeria')
+  await expect(page).toHaveScreenshot('mensajeria-1440.png')
+})
