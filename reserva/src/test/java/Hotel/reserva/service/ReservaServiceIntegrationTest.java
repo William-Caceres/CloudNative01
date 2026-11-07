@@ -27,12 +27,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.transaction.annotation.Transactional;
 
 /** Cobertura real del servicio: persistencia en H2 y evento verificado contra el broker local. */
 @SpringBootTest
 @ActiveProfiles({"test", "integration"})
-@Transactional
 class ReservaServiceIntegrationTest {
 
     private static final int PUERTO_BROKER = 5680;
@@ -45,6 +43,9 @@ class ReservaServiceIntegrationTest {
 
     @Autowired
     private ReservaRepository rep;
+
+    @Autowired
+    private OutboxRelay outboxRelay;
 
     @MockitoBean
     private KafkaEventPublisher kafkaPublisher;
@@ -93,6 +94,7 @@ class ReservaServiceIntegrationTest {
                 .with(routingReservaCreada));
         try {
             Reserva guardada = ser.r_guardar(reservaValida());
+            outboxRelay.procesar();
 
             assertNotNull(guardada.getId());
             assertTrue(rep.findById(guardada.getId()).isPresent(),

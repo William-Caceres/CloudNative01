@@ -28,13 +28,17 @@ public class ReservaEventPublisher {
         this.routingReservaCreada = routingReservaCreada;
     }
 
-    public void publicarReservaCreada(Reserva reserva) {
+    public void enviarReservaCreada(Reserva reserva) {
         Map<String, Object> evento = new LinkedHashMap<>();
         evento.put("reservaId", reserva.getId());
         evento.put("idUsuario", reserva.getIdUsuario());
+        rabbitTemplate.convertAndSend(exchangeTopic, routingReservaCreada, evento);
+        log.info("Evento reserva.creada publicado para la reserva {}", reserva.getId());
+    }
+
+    public void publicarReservaCreada(Reserva reserva) {
         try {
-            rabbitTemplate.convertAndSend(exchangeTopic, routingReservaCreada, evento);
-            log.info("Evento reserva.creada publicado para la reserva {}", reserva.getId());
+            enviarReservaCreada(reserva);
         } catch (Exception e) {
             log.error("No se pudo publicar el evento de la reserva {}: {}", reserva.getId(), e.getMessage());
         }

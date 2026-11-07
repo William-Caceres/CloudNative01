@@ -5,6 +5,7 @@ import Hotel.reserva.dto.ReservaEvent;
 import Hotel.reserva.entity.Reserva;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -31,7 +32,23 @@ public class KafkaEventPublisher {
     }
 
     public void publicarReservaCreada(Reserva reserva) {
-        ReservaEvent evento = new ReservaEvent(
+        publicar(topicReservas, String.valueOf(reserva.getId()), reservaEvento(reserva));
+    }
+
+    public void publicarPago(Reserva reserva) {
+        publicar(topicPagos, String.valueOf(reserva.getId()), pagoEvento(reserva));
+    }
+
+    public void enviarReservaCreada(Reserva reserva) {
+        enviar(topicReservas, String.valueOf(reserva.getId()), reservaEvento(reserva));
+    }
+
+    public void enviarPago(Reserva reserva) {
+        enviar(topicPagos, String.valueOf(reserva.getId()), pagoEvento(reserva));
+    }
+
+    private ReservaEvent reservaEvento(Reserva reserva) {
+        return new ReservaEvent(
                 UUID.randomUUID().toString(),
                 EVENTO_RESERVA_CREADA,
                 Instant.now().toString(),
@@ -45,11 +62,10 @@ public class KafkaEventPublisher {
                 reserva.getValorFinal(),
                 estadoPago(reserva),
                 reserva.getReferenciaPago());
-        publicar(topicReservas, String.valueOf(reserva.getId()), evento);
     }
 
-    public void publicarPago(Reserva reserva) {
-        PagoEvent evento = new PagoEvent(
+    private PagoEvent pagoEvento(Reserva reserva) {
+        return new PagoEvent(
                 UUID.randomUUID().toString(),
                 EVENTO_PAGO_CONFIRMADO,
                 Instant.now().toString(),
@@ -60,7 +76,17 @@ public class KafkaEventPublisher {
                 reserva.getValorFinal(),
                 reserva.getMetodoPago(),
                 Reserva.ESTADO_PAGO_CONFIRMADO);
-        publicar(topicPagos, String.valueOf(reserva.getId()), evento);
+    }
+
+    private void enviar(String topic, String key, Object evento) {
+        try {
+            var resultado = kafkaTemplate.send(topic, key, evento).get(5, TimeUnit.SECONDS);
+            log.info("Evento Kafka publicado topic={} key={} partition={} offset={}",
+                    topic, key, resultado.getRecordMetadata().partition(),
+                    resultado.getRecordMetadata().offset());
+        } catch (Exception e) {
+            throw new IllegalStateException("No se pudo publicar el evento Kafka en " + topic, e);
+        }
     }
 
     private void publicar(String topic, String key, Object evento) {

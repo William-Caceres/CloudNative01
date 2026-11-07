@@ -14,8 +14,6 @@ import static org.mockito.Mockito.when;
 import Hotel.reserva.dto.PagoRequest;
 import Hotel.reserva.entity.Reserva;
 import Hotel.reserva.exception.EntidadNoEncontradaException;
-import Hotel.reserva.messaging.KafkaEventPublisher;
-import Hotel.reserva.messaging.ReservaEventPublisher;
 import Hotel.reserva.repository.ReservaRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -31,10 +29,7 @@ class ReservaServicePagoTest {
     private ReservaRepository rep;
 
     @Mock
-    private ReservaEventPublisher rabbitPublisher;
-
-    @Mock
-    private KafkaEventPublisher kafkaPublisher;
+    private OutboxService outbox;
 
     @InjectMocks
     private ReservaService ser;
@@ -52,8 +47,7 @@ class ReservaServicePagoTest {
         assertEquals(Reserva.ESTADO_PAGO_PENDIENTE, guardada.getEstadoPago());
         assertNull(guardada.getMetodoPago());
         assertNull(guardada.getReferenciaPago());
-        verify(rabbitPublisher).publicarReservaCreada(guardada);
-        verify(kafkaPublisher).publicarReservaCreada(guardada);
+        verify(outbox).registrarReserva(guardada.getId());
     }
 
     @Test
@@ -67,7 +61,7 @@ class ReservaServicePagoTest {
         assertEquals(Reserva.ESTADO_PAGO_CONFIRMADO, pagada.getEstadoPago());
         assertEquals("TARJETA", pagada.getMetodoPago());
         assertNotNull(pagada.getReferenciaPago());
-        verify(kafkaPublisher).publicarPago(pagada);
+        verify(outbox).registrarPago(pagada.getId());
     }
 
     @Test
@@ -84,7 +78,7 @@ class ReservaServicePagoTest {
         assertEquals("pago-123", pagada.getReferenciaPago());
         assertEquals("TARJETA", pagada.getMetodoPago());
         verify(rep, never()).save(any(Reserva.class));
-        verifyNoInteractions(kafkaPublisher);
+        verifyNoInteractions(outbox);
     }
 
     @Test
@@ -95,7 +89,7 @@ class ReservaServicePagoTest {
                 () -> ser.r_confirmarPago(99, new PagoRequest("TARJETA")));
 
         assertEquals("RES-001", ex.getCode());
-        verifyNoInteractions(kafkaPublisher);
+        verifyNoInteractions(outbox);
     }
 
     private Reserva reserva(Integer id) {

@@ -5,8 +5,6 @@ import Hotel.reserva.entity.IdempotencyRecord;
 import Hotel.reserva.entity.Reserva;
 import Hotel.reserva.exception.BusinessRuleException;
 import Hotel.reserva.exception.EntidadNoEncontradaException;
-import Hotel.reserva.messaging.KafkaEventPublisher;
-import Hotel.reserva.messaging.ReservaEventPublisher;
 import Hotel.reserva.repository.IdempotencyRecordRepository;
 import Hotel.reserva.repository.ReservaRepository;
 import java.nio.charset.StandardCharsets;
@@ -30,9 +28,7 @@ public class ReservaService {
 
     private final IdempotencyRecordRepository idempotency;
 
-    private final ReservaEventPublisher publisher;
-
-    private final KafkaEventPublisher kafkaPublisher;
+    private final OutboxService outbox;
 
     public Reserva r_guardar(Reserva req){
         return r_guardar(req, null);
@@ -62,8 +58,7 @@ public class ReservaService {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             idempotency.save(new IdempotencyRecord(idempotencyKey, hash, guardada.getId(), LocalDateTime.now()));
         }
-        publisher.publicarReservaCreada(guardada);
-        kafkaPublisher.publicarReservaCreada(guardada);
+        outbox.registrarReserva(guardada.getId());
         return guardada;
     }
 
@@ -111,6 +106,7 @@ public class ReservaService {
         return rep.save(r_mod);
     }
 
+    @Transactional
     public Reserva r_confirmarPago(Integer id, PagoRequest req){
         Reserva reserva = rep.findById(id)
                 .orElseThrow(() -> new EntidadNoEncontradaException("RES-001",
@@ -122,7 +118,7 @@ public class ReservaService {
         reserva.setMetodoPago(req.metodoPago());
         reserva.setReferenciaPago(UUID.randomUUID().toString());
         Reserva guardada = rep.save(reserva);
-        kafkaPublisher.publicarPago(guardada);
+        outbox.registrarPago(guardada.getId());
         return guardada;
     }
 

@@ -2,6 +2,7 @@ package Hotel.reserva.controller;
 
 import Hotel.reserva.dto.PagoRequest;
 import Hotel.reserva.entity.Reserva;
+import Hotel.reserva.service.OutboxService;
 import Hotel.reserva.service.ReservaService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -24,6 +25,8 @@ public class ReservaController {
 
     private final ReservaService ser;
 
+    private final OutboxService outbox;
+
     @PostMapping("/post")
     @PreAuthorize("hasRole('ADMIN')")
     public Reserva rc_guardar(@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
@@ -39,6 +42,12 @@ public class ReservaController {
     @GetMapping("/list")
     public List<Reserva> rc_listar(){
         return ser.r_listar();
+    }
+
+    @GetMapping("/outbox/resumen")
+    @PreAuthorize("hasRole('ADMIN')")
+    public java.util.Map<String, Object> rc_outbox() {
+        return outbox.resumen();
     }
 
     @GetMapping("/usuario/{idUsuario}")

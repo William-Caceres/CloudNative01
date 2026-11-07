@@ -12,8 +12,6 @@ import static org.mockito.Mockito.when;
 import Hotel.reserva.entity.IdempotencyRecord;
 import Hotel.reserva.entity.Reserva;
 import Hotel.reserva.exception.BusinessRuleException;
-import Hotel.reserva.messaging.KafkaEventPublisher;
-import Hotel.reserva.messaging.ReservaEventPublisher;
 import Hotel.reserva.repository.IdempotencyRecordRepository;
 import Hotel.reserva.repository.ReservaRepository;
 import java.time.LocalDateTime;
@@ -36,10 +34,7 @@ class ReservaServiceTest {
     private IdempotencyRecordRepository idempotency;
 
     @Mock
-    private ReservaEventPublisher publisher;
-
-    @Mock
-    private KafkaEventPublisher kafkaPublisher;
+    private OutboxService outbox;
 
     @InjectMocks
     private ReservaService service;
@@ -59,8 +54,7 @@ class ReservaServiceTest {
         assertEquals(10, guardada.getId());
         assertEquals("key-1", captor.getValue().getKey());
         assertEquals(10, captor.getValue().getReservaId());
-        verify(publisher).publicarReservaCreada(guardada);
-        verify(kafkaPublisher).publicarReservaCreada(guardada);
+        verify(outbox).registrarReserva(10);
     }
 
     @Test
