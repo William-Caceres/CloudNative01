@@ -44,6 +44,11 @@ locals {
   kafka_bootstrap_servers = join(",", [
     for port in range(9092, 9095) : "${aws_instance.cn_kafka.private_ip}:${port}"
   ])
+  rabbit_addresses = join(",", [
+    "${aws_instance.cn_rabbit.private_ip}:5672",
+    "${aws_instance.cn_rabbit_node["rabbit2"].private_ip}:5672",
+    "${aws_instance.cn_kafka.private_ip}:5672"
+  ])
 }
 
 variable "ami_id" {
@@ -84,6 +89,12 @@ variable "kafka_instance_type" {
   description = "Tipo de instancia de la EC2 cn-kafka (permite fallback si t3.medium no esta permitido)."
   type        = string
   default     = "t3.medium"
+}
+
+variable "rabbit_node_instance_type" {
+  description = "Tipo de instancia de los nodos Rabbit adicionales (R2)."
+  type        = string
+  default     = "t3.micro"
 }
 
 # Tenant y audience de Entra ID (identificadores publicos de la app del curso).
@@ -194,6 +205,26 @@ resource "aws_security_group_rule" "ec2_rabbit_interno" {
   protocol          = "tcp"
   self              = true
   description       = "RabbitMQ del cluster: solo conexion entre las EC2 del grupo"
+}
+
+resource "aws_security_group_rule" "ec2_rabbit_cluster_epmd" {
+  type              = "ingress"
+  security_group_id = aws_security_group.ec2.id
+  from_port         = 4369
+  to_port           = 4369
+  protocol          = "tcp"
+  self              = true
+  description       = "RabbitMQ epmd entre nodos del cluster"
+}
+
+resource "aws_security_group_rule" "ec2_rabbit_cluster_dist" {
+  type              = "ingress"
+  security_group_id = aws_security_group.ec2.id
+  from_port         = 25672
+  to_port           = 25672
+  protocol          = "tcp"
+  self              = true
+  description       = "RabbitMQ distribucion Erlang entre nodos del cluster"
 }
 
 resource "aws_security_group_rule" "ec2_rabbit_dashboard" {
@@ -412,6 +443,7 @@ Environment=RABBITMQ_HOST=$RABBIT_HOST
 Environment=RABBITMQ_PORT=5672
 Environment=RABBITMQ_USER=$RABBIT_USER
 Environment=RABBITMQ_PASSWORD=$RABBIT_PASS
+Environment=SPRING_RABBITMQ_ADDRESSES=${local.rabbit_addresses}
 Environment=MICROSERVICIOS_USUARIO_URL=${aws_apigatewayv2_api.http.api_endpoint}
 Environment=MICROSERVICIOS_RESERVA_URL=${aws_apigatewayv2_api.http.api_endpoint}
 Environment=MICROSERVICIOS_SERVICIO_URL=${aws_apigatewayv2_api.http.api_endpoint}
@@ -467,6 +499,35 @@ EOT
   tags = { Name = "cn-rabbit", Project = "CloudNative01" }
 }
 
+# Nodo Rabbit adicional de R2. El tercer nodo corre en cn-kafka para evitar
+# una tercera EC2 cuando el laboratorio limita la cantidad de instancias.
+resource "aws_instance" "cn_rabbit_node" {
+  for_each                    = toset(["rabbit2"])
+  ami                         = var.ami_id
+  instance_type               = var.rabbit_node_instance_type
+  key_name                    = aws_key_pair.ev2.key_name
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.ec2.id]
+  associate_public_ip_address = true # NOSONAR: SSH/scp del despliegue desde la IP dinamica del lab.
+
+  user_data = <<-EOT
+#!/bin/bash
+exec > /var/log/cn-${each.key}-bootstrap.log 2>&1
+set -exuo pipefail
+dnf install -y docker
+systemctl enable --now docker
+usermod -aG docker ec2-user
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -sSL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+mkdir -p /home/ec2-user/rabbit-cluster
+chown ec2-user:ec2-user /home/ec2-user/rabbit-cluster
+echo "Listo: sube infra/rabbit-cluster por scp, crea .env y ejecuta docker compose up -d + ./unirse-cluster.sh"
+EOT
+
+  tags = { Name = "cn-${each.key}", Project = "CloudNative01" }
+}
+
 moved {
   from = aws_instance.rabbit_admin
   to   = aws_instance.broker_admin
@@ -498,6 +559,7 @@ Environment=RABBITMQ_HOST=${aws_instance.cn_rabbit.private_ip}
 Environment=RABBITMQ_PORT=5672
 Environment=RABBITMQ_USER=${var.rabbit_user}
 Environment=RABBITMQ_PASSWORD=${var.rabbit_password}
+Environment=SPRING_RABBITMQ_ADDRESSES=${local.rabbit_addresses}
 Environment=KAFKA_BOOTSTRAP_SERVERS=${local.kafka_bootstrap_servers}
 Environment=SERVER_PORT=8085
 Environment=CORS_ORIGINS=${local.cors_origins_env}
@@ -684,6 +746,18 @@ output "rabbit_private_ip" {
 
 output "rabbit_public_ip" {
   value = aws_instance.cn_rabbit.public_ip
+}
+
+output "rabbit_nodes_public_ip" {
+  value = { for k, v in aws_instance.cn_rabbit_node : k => v.public_ip }
+}
+
+output "rabbit_nodes_private_ip" {
+  value = { for k, v in aws_instance.cn_rabbit_node : k => v.private_ip }
+}
+
+output "rabbit_addresses" {
+  value = local.rabbit_addresses
 }
 
 output "broker_admin_public_ip" {

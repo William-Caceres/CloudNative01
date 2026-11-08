@@ -1,33 +1,36 @@
 #!/bin/bash
-# Une rabbit2 al cluster formado por rabbit1. Idempotente: si ya esta unido,
-# no hace nada. Se ejecuta en la EC2 cn-rabbit despues de docker compose up -d.
-# Los volumenes persisten la membresia, por lo que en reinicios posteriores
-# del lab el cluster se re-forma solo y este script no vuelve a hacer join.
+# Une el nodo local al cluster de rabbit1. Idempotente.
 set -euo pipefail
 
+set -a
+. ./.env
+set +a
+
+NODO="${RABBIT_NODE}"
+
 esperar() {
-  local contenedor="$1"
-  for _ in $(seq 1 24); do
-    if docker exec "$contenedor" rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
+  for _ in $(seq 1 30); do
+    if docker exec "$NODO" rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
       return 0
     fi
     sleep 5
   done
-  echo "ERROR: $contenedor no respondio a tiempo" >&2
+  echo "ERROR: $NODO no respondio a tiempo" >&2
   exit 1
 }
 
-esperar rabbit1
-esperar rabbit2
+esperar
 
-if docker exec rabbit2 rabbitmqctl cluster_status 2>/dev/null | grep -q "rabbit@rabbit1"; then
-  echo "rabbit2 ya forma parte del cluster"
-else
-  docker exec rabbit2 rabbitmqctl stop_app
-  docker exec rabbit2 rabbitmqctl join_cluster rabbit@rabbit1
-  docker exec rabbit2 rabbitmqctl start_app
-  echo "rabbit2 unido al cluster"
+if [ "$NODO" != "rabbit1" ]; then
+  if docker exec "$NODO" rabbitmqctl cluster_status 2>/dev/null | grep -q "rabbit@rabbit1"; then
+    echo "$NODO ya forma parte del cluster"
+  else
+    docker exec "$NODO" rabbitmqctl stop_app
+    docker exec "$NODO" rabbitmqctl join_cluster rabbit@rabbit1
+    docker exec "$NODO" rabbitmqctl start_app
+    echo "$NODO unido al cluster"
+  fi
 fi
 
 echo "=== cluster_status ==="
-docker exec rabbit1 rabbitmqctl cluster_status
+docker exec "$NODO" rabbitmqctl cluster_status

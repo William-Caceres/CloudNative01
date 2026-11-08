@@ -35,6 +35,8 @@ class RabbitMqConfigTest {
         assertTrue(cola.isDurable(), nombreEsperado + " debe ser durable");
         assertEquals("hotel.dlx", cola.getArguments().get("x-dead-letter-exchange"));
         assertEquals(dlqEsperada, cola.getArguments().get("x-dead-letter-routing-key"));
+        assertEquals("quorum", cola.getArguments().get("x-queue-type"));
+        assertEquals(3, cola.getArguments().get("x-quorum-initial-group-size"));
     }
 
     @Test
@@ -45,6 +47,8 @@ class RabbitMqConfigTest {
         assertTrue(dlqs.stream().allMatch(Queue::isDurable));
         assertTrue(dlqs.stream().allMatch(q -> Long.valueOf(86400000L).equals(q.getArguments().get("x-message-ttl"))),
                 "cada DLQ debe retener 24 h (x-message-ttl)");
+        assertTrue(dlqs.stream().allMatch(q -> "quorum".equals(q.getArguments().get("x-queue-type"))),
+                "cada DLQ debe ser quorum");
     }
 
     @Test

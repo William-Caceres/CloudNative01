@@ -27,6 +27,11 @@ public class RabbitMqConfig {
     // Retencion de las DLQ: 24 h (politica de retencion de la guia 2.2.3)
     private static final long DLQ_TTL_MS = 24L * 60 * 60 * 1000;
     private static final String ARG_TTL = "x-message-ttl";
+    private static final String ARG_QUEUE_TYPE = "x-queue-type";
+    private static final String ARG_QUORUM_SIZE = "x-quorum-initial-group-size";
+    private static final String QUORUM = "quorum";
+    @Value("${hotel.mensajeria.quorum-size:3}")
+    private int quorumSize;
 
     @Value("${hotel.mensajeria.exchanges.topic}")
     private String exchangeTopic;
@@ -121,24 +126,30 @@ public class RabbitMqConfig {
     // DLQs
     @Bean
     public Queue dlqNotificaciones() {
-        return QueueBuilder.durable(dlqNotificaciones).withArgument(ARG_TTL, DLQ_TTL_MS).build();
+        return colaQuorum(dlqNotificaciones).withArgument(ARG_TTL, DLQ_TTL_MS).build();
     }
 
     @Bean
     public Queue dlqTickets() {
-        return QueueBuilder.durable(dlqTickets).withArgument(ARG_TTL, DLQ_TTL_MS).build();
+        return colaQuorum(dlqTickets).withArgument(ARG_TTL, DLQ_TTL_MS).build();
     }
 
     @Bean
     public Queue dlqDocumentos() {
-        return QueueBuilder.durable(dlqDocumentos).withArgument(ARG_TTL, DLQ_TTL_MS).build();
+        return colaQuorum(dlqDocumentos).withArgument(ARG_TTL, DLQ_TTL_MS).build();
     }
 
     private Queue colaConDlq(String cola, String dlq) {
-        return QueueBuilder.durable(cola)
+        return colaQuorum(cola)
                 .withArgument("x-dead-letter-exchange", exchangeDlx)
                 .withArgument("x-dead-letter-routing-key", dlq)
                 .build();
+    }
+
+    private QueueBuilder colaQuorum(String nombre) {
+        return QueueBuilder.durable(nombre)
+                .withArgument(ARG_QUEUE_TYPE, QUORUM)
+                .withArgument(ARG_QUORUM_SIZE, quorumSize);
     }
 
     // Bindings del exchange topic (eventos del dominio)
