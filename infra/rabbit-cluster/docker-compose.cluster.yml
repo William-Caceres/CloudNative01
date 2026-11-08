@@ -1,0 +1,44 @@
+# Clúster RabbitMQ local de 2 nodos para demostrar la rúbrica.
+# Uso: docker compose -f docker-compose.cluster.yml up -d && bash unirse-cluster-local.sh
+name: hotel-rabbit-local
+
+services:
+  rabbit1:
+    image: rabbitmq:4.2-management
+    container_name: hotel-rabbit-local1
+    hostname: rabbit-local1
+    environment:
+      RABBITMQ_NODENAME: rabbit@rabbit-local1
+      RABBITMQ_ERLANG_COOKIE: cloudnativecookie
+      RABBITMQ_DEFAULT_USER: hotel
+      RABBITMQ_DEFAULT_PASS: hotel
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  rabbit2:
+    image: rabbitmq:4.2-management
+    container_name: hotel-rabbit-local2
+    hostname: rabbit-local2
+    environment:
+      RABBITMQ_NODENAME: rabbit@rabbit-local2
+      RABBITMQ_ERLANG_COOKIE: cloudnativecookie
+      RABBITMQ_DEFAULT_USER: hotel
+      RABBITMQ_DEFAULT_PASS: hotel
+    depends_on:
+      rabbit1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
