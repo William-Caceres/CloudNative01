@@ -41,11 +41,13 @@ public class KafkaAdminController {
     }
 
     @GetMapping("/topics")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<String> listarTopics() {
         return ser.listarTopics();
     }
 
     @GetMapping("/topics/{nombre}")
+    @PreAuthorize("hasRole('ADMIN')")
     public KafkaTopicInfo describirTopic(@PathVariable String nombre) {
         return ser.describirTopic(nombre);
     }
@@ -67,16 +69,19 @@ public class KafkaAdminController {
     }
 
     @GetMapping("/groups")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<KafkaGrupoResumen> listarGrupos() {
         return ser.listarGrupos();
     }
 
     @GetMapping("/groups/{grupo}")
+    @PreAuthorize("hasRole('ADMIN')")
     public KafkaGrupoInfo describirGrupo(@PathVariable String grupo) {
         return ser.describirGrupo(grupo);
     }
 
     @GetMapping("/summary")
+    @PreAuthorize("hasRole('ADMIN')")
     public KafkaResumen resumen() {
         return ser.resumen();
     }

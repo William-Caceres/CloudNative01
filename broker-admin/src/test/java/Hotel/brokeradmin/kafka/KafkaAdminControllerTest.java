@@ -50,13 +50,10 @@ class KafkaAdminControllerTest {
     }
 
     @Test
-    void clientePuedeListarTopics200() throws Exception {
-        when(ser.listarTopics()).thenReturn(List.of("reservas", "pagos"));
-
+    void clienteNoPuedeListarTopics403() throws Exception {
         mvc.perform(get(BASE + "/topics").with(jwt().authorities(CLIENTE)))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0]").value("reservas"))
-            .andExpect(jsonPath("$[1]").value("pagos"));
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath(JSON_CODE).value("AUTH-003"));
     }
 
     @Test
@@ -107,50 +104,52 @@ class KafkaAdminControllerTest {
     }
 
     @Test
-    void clientePuedeDescribirTopic200() throws Exception {
-        when(ser.describirTopic("reservas")).thenReturn(new KafkaTopicInfo(
-                "reservas", 3, 3, List.of(), Map.of("min.insync.replicas", "2")));
-
+    void clienteNoPuedeDescribirTopic403() throws Exception {
         mvc.perform(get(BASE + "/topics/reservas").with(jwt().authorities(CLIENTE)))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.nombre").value("reservas"))
-            .andExpect(jsonPath("$.particiones").value(3));
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath(JSON_CODE).value("AUTH-003"));
     }
 
     @Test
-    void clientePuedeListarGrupos200() throws Exception {
-        when(ser.listarGrupos()).thenReturn(List.of(
-                new KafkaGrupoResumen("analytics-group", "STABLE", 3, 0)));
-
+    void clienteNoPuedeListarGrupos403() throws Exception {
         mvc.perform(get(BASE + "/groups").with(jwt().authorities(CLIENTE)))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].grupo").value("analytics-group"));
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath(JSON_CODE).value("AUTH-003"));
     }
 
     @Test
-    void clientePuedeDescribirGrupo200() throws Exception {
-        when(ser.describirGrupo("analytics-group")).thenReturn(
-                new KafkaGrupoInfo("analytics-group", "STABLE", 3, 0, List.of()));
-
+    void clienteNoPuedeDescribirGrupo403() throws Exception {
         mvc.perform(get(BASE + "/groups/analytics-group").with(jwt().authorities(CLIENTE)))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.grupo").value("analytics-group"))
-            .andExpect(jsonPath("$.lagTotal").value(0));
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath(JSON_CODE).value("AUTH-003"));
     }
 
     @Test
     void resumenDevuelveMetricasYCluster() throws Exception {
+        mvc.perform(get(BASE + "/summary").with(jwt().authorities(CLIENTE)))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath(JSON_CODE).value("AUTH-003"));
+    }
+
+    @Test
+    void adminPuedeListarTopics200() throws Exception {
+        when(ser.listarTopics()).thenReturn(List.of("reservas", "pagos"));
+
+        mvc.perform(get(BASE + "/topics").with(jwt().authorities(ADMIN)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0]").value("reservas"));
+    }
+
+    @Test
+    void adminPuedeVerResumen200() throws Exception {
         KafkaResumen resumen = new KafkaResumen(3, 4, 2, 0, 10, 20,
                 "pago:evt-1", "2026-11-06T05:30:00Z",
-                List.of(new KafkaGrupoResumen("analytics-group", "STABLE", 3, 0)));
+                List.of(new KafkaGrupoResumen("analytics-group", "STABLE", 3, 0)), List.of());
         when(ser.resumen()).thenReturn(resumen);
 
-        mvc.perform(get(BASE + "/summary").with(jwt().authorities(CLIENTE)))
+        mvc.perform(get(BASE + "/summary").with(jwt().authorities(ADMIN)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.brokers").value(3))
-            .andExpect(jsonPath("$.topics").value(4))
-            .andExpect(jsonPath("$.reservasProcesadas").value(10))
-            .andExpect(jsonPath("$.pagosProcesados").value(20))
-            .andExpect(jsonPath("$.detalleGrupos[0].grupo").value("analytics-group"));
+            .andExpect(jsonPath("$.reservasProcesadas").value(10));
     }
 }

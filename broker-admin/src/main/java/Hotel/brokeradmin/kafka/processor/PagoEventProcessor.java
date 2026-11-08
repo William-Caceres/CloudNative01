@@ -14,12 +14,12 @@ public class PagoEventProcessor {
 
     private final KafkaMetrics metrics;
 
-    public void procesar(PagoEvent evento) {
+    public void procesar(PagoEvent evento, String consumidor) {
         if (evento == null || evento.eventId() == null || evento.reservaId() == null
                 || evento.pagoId() == null) {
             throw new MensajeInvalidoException("Evento de pago invalido");
         }
-        metrics.registrarPago(evento);
+        metrics.registrarPago(evento, consumidor);
         log.info("Evento de pago procesado eventId={} reservaId={} pagoId={} estadoPago={}",
                 evento.eventId(), evento.reservaId(), evento.pagoId(), evento.estadoPago());
     }

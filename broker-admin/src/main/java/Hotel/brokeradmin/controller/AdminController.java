@@ -40,8 +40,9 @@ public class AdminController {
                 .body(Map.of(MENSAJE, "Cola creada: " + req.nombre()));
     }
 
-    /** Info de una cola: mensajes en espera y consumidores. */
+    /** Info de una cola: mensajes en espera y consumidores. Solo ADMIN. */
     @GetMapping("/queues/{nombre}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> rac_infoCola(@PathVariable String nombre) {
         ColaInfo info = ser.ra_infoCola(nombre);
         Map<String, Object> salida = new LinkedHashMap<>();

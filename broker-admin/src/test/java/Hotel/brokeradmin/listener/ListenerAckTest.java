@@ -3,10 +3,14 @@ package Hotel.brokeradmin.listener;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import Hotel.brokeradmin.idempotencia.ProcesamientoIdempotente;
 import Hotel.brokeradmin.listener.documento.DocumentoListener;
 import Hotel.brokeradmin.listener.documento.DocumentoProcessor;
 import Hotel.brokeradmin.listener.notificacion.NotificacionListener;
@@ -49,15 +53,19 @@ class ListenerAckTest {
     @Mock
     private DocumentoProcessor procesadorDocumento;
 
+    @Mock
+    private ProcesamientoIdempotente idempotente;
+
     private NotificacionListener notificacion;
     private TicketListener ticket;
     private DocumentoListener documento;
 
     @BeforeEach
     void armar() {
-        notificacion = new NotificacionListener(procesadorNotificacion);
-        ticket = new TicketListener(procesadorTicket);
-        documento = new DocumentoListener(procesadorDocumento);
+        lenient().when(idempotente.reclamar(anyString(), anyString())).thenReturn(true);
+        notificacion = new NotificacionListener(procesadorNotificacion, idempotente);
+        ticket = new TicketListener(procesadorTicket, idempotente);
+        documento = new DocumentoListener(procesadorDocumento, idempotente);
     }
 
     @Test
@@ -118,6 +126,16 @@ class ListenerAckTest {
         verify(channel).basicNack(8L, false, false);
         verify(channel).basicNack(9L, false, false);
         verify(channel, never()).basicAck(anyLong(), anyBoolean());
+    }
+
+    @Test
+    void eventoDuplicadoSeReconoceSinProcesar() throws Exception {
+        when(idempotente.reclamar("rabbit:notificaciones.queue", "77")).thenReturn(false);
+
+        notificacion.procesarNotificacion(Map.of(CAMPO_RESERVA_ID, 77), channel, mensaje(false), 10L);
+
+        verify(procesadorNotificacion, never()).procesar(anyMap());
+        verify(channel).basicAck(10L, false);
     }
 
     private Message mensaje(boolean reentregado) {

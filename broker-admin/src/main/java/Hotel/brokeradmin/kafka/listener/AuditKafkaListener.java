@@ -2,6 +2,7 @@ package Hotel.brokeradmin.kafka.listener;
 
 import Hotel.brokeradmin.kafka.dto.PagoEvent;
 import Hotel.brokeradmin.kafka.dto.ReservaEvent;
+import Hotel.brokeradmin.idempotencia.ProcesamientoIdempotente;
 import Hotel.brokeradmin.kafka.processor.PagoEventProcessor;
 import Hotel.brokeradmin.kafka.processor.ReservaEventProcessor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,13 +17,19 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(name = "hotel.kafka.consumidores-activos", havingValue = "true", matchIfMissing = true)
 public class AuditKafkaListener {
 
+    private static final String CONSUMIDOR_RESERVAS = "kafka:audit-group:reservas";
+    private static final String CONSUMIDOR_PAGOS = "kafka:audit-group:pagos";
+
     private final ReservaEventProcessor reservaProcessor;
     private final PagoEventProcessor pagoProcessor;
+    private final ProcesamientoIdempotente idempotente;
 
     public AuditKafkaListener(ReservaEventProcessor reservaProcessor,
-            PagoEventProcessor pagoProcessor) {
+            PagoEventProcessor pagoProcessor,
+            ProcesamientoIdempotente idempotente) {
         this.reservaProcessor = reservaProcessor;
         this.pagoProcessor = pagoProcessor;
+        this.idempotente = idempotente;
     }
 
     @KafkaListener(
@@ -36,7 +43,7 @@ public class AuditKafkaListener {
             @Header(name = KafkaHeaders.RECEIVED_KEY, required = false) String key) {
         log.info("Kafka audit reservas topic={} partition={} offset={} key={} eventId={}",
                 topic, partition, offset, key, evento == null ? null : evento.eventId());
-        reservaProcessor.procesar(evento);
+        procesarReserva(evento);
     }
 
     @KafkaListener(
@@ -50,6 +57,40 @@ public class AuditKafkaListener {
             @Header(name = KafkaHeaders.RECEIVED_KEY, required = false) String key) {
         log.info("Kafka audit pagos topic={} partition={} offset={} key={} eventId={}",
                 topic, partition, offset, key, evento == null ? null : evento.eventId());
-        pagoProcessor.procesar(evento);
+        procesarPago(evento);
+    }
+
+    private void procesarReserva(ReservaEvent evento) {
+        if (evento == null || evento.eventId() == null) {
+            reservaProcessor.procesar(evento, CONSUMIDOR_RESERVAS);
+            return;
+        }
+        if (!idempotente.reclamar(CONSUMIDOR_RESERVAS, evento.eventId())) {
+            log.info("Kafka audit reservas duplicado ignorado eventId={}", evento.eventId());
+            return;
+        }
+        try {
+            reservaProcessor.procesar(evento, CONSUMIDOR_RESERVAS);
+        } catch (RuntimeException e) {
+            idempotente.liberar(CONSUMIDOR_RESERVAS, evento.eventId());
+            throw e;
+        }
+    }
+
+    private void procesarPago(PagoEvent evento) {
+        if (evento == null || evento.eventId() == null) {
+            pagoProcessor.procesar(evento, CONSUMIDOR_PAGOS);
+            return;
+        }
+        if (!idempotente.reclamar(CONSUMIDOR_PAGOS, evento.eventId())) {
+            log.info("Kafka audit pagos duplicado ignorado eventId={}", evento.eventId());
+            return;
+        }
+        try {
+            pagoProcessor.procesar(evento, CONSUMIDOR_PAGOS);
+        } catch (RuntimeException e) {
+            idempotente.liberar(CONSUMIDOR_PAGOS, evento.eventId());
+            throw e;
+        }
     }
 }

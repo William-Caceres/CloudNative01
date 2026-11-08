@@ -19,7 +19,7 @@ class ReservaEventProcessorTest {
         ReservaEvent evento = new ReservaEvent("evt-1", "RESERVA_CREADA", Instant.now().toString(), 1,
                 7, 9, "2026-11-01", "2026-11-05", "Doble", 2, 100000, "PENDIENTE", null);
 
-        assertDoesNotThrow(() -> processor.procesar(evento));
+        assertDoesNotThrow(() -> processor.procesar(evento, "kafka:analytics-group:reservas"));
     }
 
     @Test
@@ -27,7 +27,7 @@ class ReservaEventProcessorTest {
         ReservaEvent evento = new ReservaEvent("evt-1", "RESERVA_CREADA", Instant.now().toString(), 1,
                 null, 9, "2026-11-01", "2026-11-05", "Doble", 2, 100000, "PENDIENTE", null);
 
-        assertThrows(MensajeInvalidoException.class, () -> processor.procesar(evento));
+        assertThrows(MensajeInvalidoException.class, () -> processor.procesar(evento, "kafka:analytics-group:reservas"));
     }
 
     @Test
@@ -35,6 +35,6 @@ class ReservaEventProcessorTest {
         ReservaEvent evento = new ReservaEvent(null, "RESERVA_CREADA", Instant.now().toString(), 1,
                 7, 9, "2026-11-01", "2026-11-05", "Doble", 2, 100000, "PENDIENTE", null);
 
-        assertThrows(MensajeInvalidoException.class, () -> processor.procesar(evento));
+        assertThrows(MensajeInvalidoException.class, () -> processor.procesar(evento, "kafka:analytics-group:reservas"));
     }
 }

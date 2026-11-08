@@ -1,5 +1,6 @@
 package Hotel.brokeradmin.listener.documento;
 
+import Hotel.brokeradmin.idempotencia.ProcesamientoIdempotente;
 import Hotel.brokeradmin.listener.MensajeInvalidoException;
 import com.rabbitmq.client.Channel;
 import java.io.IOException;
@@ -21,14 +22,18 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-// En perfil test no se registra: los tests de contexto no deben abrir conexiones al broker
 @Profile("!test")
 public class DocumentoListener {
 
-    private final DocumentoProcessor processor;
+    private static final String CONSUMIDOR = "rabbit:documentos.queue";
 
-    public DocumentoListener(DocumentoProcessor processor) {
+    private final DocumentoProcessor processor;
+    private final ProcesamientoIdempotente idempotente;
+
+    public DocumentoListener(DocumentoProcessor processor,
+            ProcesamientoIdempotente idempotente) {
         this.processor = processor;
+        this.idempotente = idempotente;
     }
 
     @RabbitListener(queues = "${hotel.mensajeria.colas.documentos}")
@@ -36,13 +41,21 @@ public class DocumentoListener {
                                   Channel channel,
                                   Message mensaje,
                                   @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException {
+        String clave = evento.get("servicioId") == null ? null : String.valueOf(evento.get("servicioId"));
+        if (clave != null && !idempotente.reclamar(CONSUMIDOR, clave)) {
+            log.info("Documento duplicado ignorado servicioId={}", clave);
+            channel.basicAck(deliveryTag, false);
+            return;
+        }
         try {
             processor.procesar(evento);
             channel.basicAck(deliveryTag, false);
         } catch (MensajeInvalidoException e) {
+            liberar(clave);
             log.error("Documento invalido, se deriva a DLQ: {}", e.getMessage());
             channel.basicNack(deliveryTag, false, false);
         } catch (Exception e) {
+            liberar(clave);
             if (mensaje.getMessageProperties().isRedelivered()) {
                 log.error("Reintento agotado, el documento se deriva a DLQ: {}", e.getMessage());
                 channel.basicNack(deliveryTag, false, false);
@@ -50,6 +63,12 @@ public class DocumentoListener {
                 log.warn("Fallo recuperable, se reintenta una vez el documento: {}", e.getMessage());
                 channel.basicNack(deliveryTag, false, true);
             }
+        }
+    }
+
+    private void liberar(String clave) {
+        if (clave != null) {
+            idempotente.liberar(CONSUMIDOR, clave);
         }
     }
 }

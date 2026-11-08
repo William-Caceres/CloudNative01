@@ -2,6 +2,18 @@ spring:
   application:
     name: broker-admin
 
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:h_broker_admin}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    database-platform: org.hibernate.dialect.MySQLDialect
+
   # Seguridad OAuth2 Resource Server (JWT de Microsoft Entra ID)
   security:
     oauth2:

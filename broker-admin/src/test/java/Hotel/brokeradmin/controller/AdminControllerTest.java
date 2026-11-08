@@ -82,12 +82,20 @@ class AdminControllerTest {
     }
 
     @Test
-    void clientePuedeVerInfoDeCola200() throws Exception {
+    void clienteNoPuedeVerInfoDeCola403() throws Exception {
+        mvc.perform(get(BASE + "/queues/notificaciones.queue")
+                .with(jwt().authorities(CLIENTE)))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath(JSON_CODE).value("AUTH-003"));
+    }
+
+    @Test
+    void adminPuedeVerInfoDeCola200() throws Exception {
         when(ser.ra_infoCola(COLA_NOTIFICACIONES))
                 .thenReturn(new ColaInfo(COLA_NOTIFICACIONES, 0, 1));
 
         mvc.perform(get(BASE + "/queues/notificaciones.queue")
-                .with(jwt().authorities(CLIENTE)))
+                .with(jwt().authorities(ADMIN)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.nombre").value(COLA_NOTIFICACIONES))
             .andExpect(jsonPath("$.mensajes").value(0))

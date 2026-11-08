@@ -19,7 +19,7 @@ class PagoEventProcessorTest {
         PagoEvent evento = new PagoEvent("evt-2", "PAGO_CONFIRMADO", Instant.now().toString(), 1,
                 "pago-123", 7, 9, 100000, "TARJETA", "CONFIRMADO");
 
-        assertDoesNotThrow(() -> processor.procesar(evento));
+        assertDoesNotThrow(() -> processor.procesar(evento, "kafka:analytics-group:pagos"));
     }
 
     @Test
@@ -27,7 +27,7 @@ class PagoEventProcessorTest {
         PagoEvent evento = new PagoEvent("evt-2", "PAGO_CONFIRMADO", Instant.now().toString(), 1,
                 null, 7, 9, 100000, "TARJETA", "CONFIRMADO");
 
-        assertThrows(MensajeInvalidoException.class, () -> processor.procesar(evento));
+        assertThrows(MensajeInvalidoException.class, () -> processor.procesar(evento, "kafka:analytics-group:pagos"));
     }
 
     @Test
@@ -35,6 +35,6 @@ class PagoEventProcessorTest {
         PagoEvent evento = new PagoEvent("evt-2", "PAGO_CONFIRMADO", Instant.now().toString(), 1,
                 "pago-123", null, 9, 100000, "TARJETA", "CONFIRMADO");
 
-        assertThrows(MensajeInvalidoException.class, () -> processor.procesar(evento));
+        assertThrows(MensajeInvalidoException.class, () -> processor.procesar(evento, "kafka:analytics-group:pagos"));
     }
 }

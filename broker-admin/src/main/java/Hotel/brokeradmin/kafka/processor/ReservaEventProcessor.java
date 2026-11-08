@@ -14,11 +14,11 @@ public class ReservaEventProcessor {
 
     private final KafkaMetrics metrics;
 
-    public void procesar(ReservaEvent evento) {
+    public void procesar(ReservaEvent evento, String consumidor) {
         if (evento == null || evento.eventId() == null || evento.reservaId() == null) {
             throw new MensajeInvalidoException("Evento de reserva invalido");
         }
-        metrics.registrarReserva(evento);
+        metrics.registrarReserva(evento, consumidor);
         log.info("Evento de reserva procesado eventId={} reservaId={} estadoPago={}",
                 evento.eventId(), evento.reservaId(), evento.estadoPago());
     }

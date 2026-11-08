@@ -68,6 +68,22 @@ function Mensajeria() {
                 <Metrica etiqueta="Pagos procesados" valor={resumen?.pagosProcesados} />
             </div>
 
+            {resumen?.detalleConsumidores?.length > 0 && (
+                <div className="gh-card">
+                    <span className="gh-tag">Procesamiento idempotente</span>
+                    <div className="gh-detail-list">
+                        {resumen.detalleConsumidores.map((consumidor) => (
+                            <div className="gh-detail-row" key={consumidor.consumidor}>
+                                <span>{consumidor.consumidor}</span>
+                                <strong>
+                                    {consumidor.reservasProcesadas} reservas · {consumidor.pagosProcesados} pagos
+                                </strong>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {resumen?.detalleGrupos?.length > 0 && (
                 <div className="gh-card">
                     <span className="gh-tag">Consumer groups</span>

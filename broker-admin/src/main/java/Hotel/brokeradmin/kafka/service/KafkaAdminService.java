@@ -168,7 +168,8 @@ public class KafkaAdminService {
         long lagTotal = grupos.stream().mapToLong(KafkaGrupoResumen::lagTotal).sum();
         return new KafkaResumen(brokers, topics.size(), grupos.size(), lagTotal,
                 metrics.reservasProcesadas(), metrics.pagosProcesados(),
-                metrics.ultimoEvento(), metrics.ultimoEventoEn(), grupos);
+                metrics.ultimoEvento(), metrics.ultimoEventoEn(), grupos,
+                metrics.detalleConsumidores());
     }
 
     private <T> T esperar(KafkaFuture<T> futuro, String mensaje, HttpStatus estado) {

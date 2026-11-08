@@ -11,5 +11,6 @@ public record KafkaResumen(
         long pagosProcesados,
         String ultimoEvento,
         String ultimoEventoEn,
-        List<KafkaGrupoResumen> detalleGrupos) {
+        List<KafkaGrupoResumen> detalleGrupos,
+        List<KafkaConsumidorResumen> detalleConsumidores) {
 }
