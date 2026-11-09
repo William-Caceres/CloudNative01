@@ -643,7 +643,8 @@ resource "aws_apigatewayv2_integration" "http" {
   api_id             = aws_apigatewayv2_api.http.id
   integration_type   = "HTTP_PROXY"
   integration_method = "ANY"
-  integration_uri    = "http://${local.microservicios_public_ip[each.key]}:${each.value.port}/api/v1/${each.key}/{proxy}"
+  # API Gateway usa la EIP estable del frontend; Nginx hace proxy a las IPs privadas.
+  integration_uri = "http://${aws_eip.frontend.public_ip}/api/v1/${each.key}/{proxy}"
 }
 
 resource "aws_apigatewayv2_route" "http" {
