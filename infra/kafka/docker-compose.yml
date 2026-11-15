@@ -1,9 +1,9 @@
-name: grand-hotel-kafka
+name: cn-dev-kafka
 
 services:
   zookeeper1:
     image: confluentinc/cp-zookeeper:7.5.0
-    container_name: kafka-zookeeper1
+    container_name: cn-dev-kafka-zk-1
     environment:
       ZOOKEEPER_SERVER_ID: 1
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -17,7 +17,7 @@ services:
 
   zookeeper2:
     image: confluentinc/cp-zookeeper:7.5.0
-    container_name: kafka-zookeeper2
+    container_name: cn-dev-kafka-zk-2
     environment:
       ZOOKEEPER_SERVER_ID: 2
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -31,7 +31,7 @@ services:
 
   zookeeper3:
     image: confluentinc/cp-zookeeper:7.5.0
-    container_name: kafka-zookeeper3
+    container_name: cn-dev-kafka-zk-3
     environment:
       ZOOKEEPER_SERVER_ID: 3
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -45,7 +45,7 @@ services:
 
   kafka1:
     image: confluentinc/cp-kafka:7.5.0
-    container_name: kafka1
+    container_name: cn-dev-kafka-1
     depends_on:
       - zookeeper1
       - zookeeper2
@@ -71,7 +71,7 @@ services:
 
   kafka2:
     image: confluentinc/cp-kafka:7.5.0
-    container_name: kafka2
+    container_name: cn-dev-kafka-2
     depends_on:
       - zookeeper1
       - zookeeper2
@@ -97,7 +97,7 @@ services:
 
   kafka3:
     image: confluentinc/cp-kafka:7.5.0
-    container_name: kafka3
+    container_name: cn-dev-kafka-3
     depends_on:
       - zookeeper1
       - zookeeper2
@@ -123,13 +123,13 @@ services:
 
   kafka-ui:
     image: provectuslabs/kafka-ui:v0.7.2
-    container_name: kafka-ui
+    container_name: cn-dev-kafka-ui
     depends_on:
       - kafka1
       - kafka2
       - kafka3
     ports:
-      - "8080:8080"
+      - "${KAFKA_UI_PORT:-8080}:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: grand-hotel
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:29092,kafka2:29092,kafka3:29092

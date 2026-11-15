@@ -1,11 +1,11 @@
 # Clúster RabbitMQ local de 2 nodos para demostrar la rúbrica.
 # Uso: docker compose -f docker-compose.cluster.yml up -d && bash unirse-cluster-local.sh
-name: hotel-rabbit-local
+name: cn-dev-rabbit
 
 services:
   rabbit1:
     image: rabbitmq:4.2-management
-    container_name: hotel-rabbit-local1
+    container_name: cn-dev-rabbit-1
     hostname: rabbit-local1
     environment:
       RABBITMQ_NODENAME: rabbit@rabbit-local1
@@ -25,7 +25,7 @@ services:
 
   rabbit2:
     image: rabbitmq:4.2-management
-    container_name: hotel-rabbit-local2
+    container_name: cn-dev-rabbit-2
     hostname: rabbit-local2
     environment:
       RABBITMQ_NODENAME: rabbit@rabbit-local2

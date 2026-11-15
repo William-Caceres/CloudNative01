@@ -29,6 +29,13 @@ mvn_out.txt
 # Excepcion: .env.example se versiona como template
 !.env.example
 
+# Tokens locales
+tokens/
+token*.txt
+*.token
+*.secret
+*.jwt
+
 # Dependencias (frontend)
 node_modules/
 **/node_modules/
@@ -67,6 +74,7 @@ HELP.md
 
 # Scripts locales
 scripts/*
+*.ps1
 
 # Artefactos de analisis (Qodana y export de inspecciones del IDE)
 qodana.sarif.json
@@ -91,6 +99,7 @@ logs/
 backups/
 tmp/
 temp/
+.local/
 
 # Configuracion de agentes
 AGENTS.md
