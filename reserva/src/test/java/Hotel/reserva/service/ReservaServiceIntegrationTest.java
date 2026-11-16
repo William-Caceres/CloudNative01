@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import Hotel.reserva.entity.Reserva;
 import Hotel.reserva.exception.EntidadNoEncontradaException;
+import Hotel.reserva.messaging.KafkaEventPublisher;
 import Hotel.reserva.repository.ReservaRepository;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -25,12 +26,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /** Cobertura real del servicio: persistencia en H2 y evento verificado contra el broker local. */
 @SpringBootTest
 @ActiveProfiles({"test", "integration"})
-@Transactional
 class ReservaServiceIntegrationTest {
 
     private static final int PUERTO_BROKER = 5680;
@@ -43,6 +43,12 @@ class ReservaServiceIntegrationTest {
 
     @Autowired
     private ReservaRepository rep;
+
+    @Autowired
+    private OutboxRelay outboxRelay;
+
+    @MockitoBean
+    private KafkaEventPublisher kafkaPublisher;
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
@@ -88,6 +94,7 @@ class ReservaServiceIntegrationTest {
                 .with(routingReservaCreada));
         try {
             Reserva guardada = ser.r_guardar(reservaValida());
+            outboxRelay.procesar();
 
             assertNotNull(guardada.getId());
             assertTrue(rep.findById(guardada.getId()).isPresent(),

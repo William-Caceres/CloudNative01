@@ -1,13 +1,68 @@
-body{
+:root {
+  --gh-ivory: #f7f2e8;
+  --gh-surface: #fffdf9;
+  --gh-navy: #0b1b2b;
+  --gh-ink: #0b1b2b;
+  --gh-muted: #56606b;
+  --gh-gold: #b8914a;
+  --gh-gold-light: #d6b36a;
+  --gh-line: #d9cebe;
+  --gh-error: #a4262c;
+  --gh-success: #2f6b4f;
+  --gh-warning: #a96c1f;
+  --gh-white: #fffdf9;
+  --gh-radius: 2px;
+  --gh-shadow: 0 18px 50px rgba(11, 27, 43, 0.08);
+  --gh-font-display: Georgia, "Times New Roman", serif;
+  --gh-font-body: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
   min-height: 100vh;
-  background: linear-gradient(#9d0880, #ff9696);
-  background-repeat: no-repeat;
-  background-size: cover;
   margin: 0;
+  background: var(--gh-ivory);
+  color: var(--gh-ink);
+  font-family: var(--gh-font-body);
+  font-size: 16px;
+  line-height: 1.55;
 }
-body::-webkit-scrollbar {
-  display: none;
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
-form::-webkit-scrollbar {
-  display: none;
+
+a {
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

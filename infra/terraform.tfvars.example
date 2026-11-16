@@ -1,0 +1,4 @@
+# Copiar a infra/terraform.tfvars y completar los valores.
+# El archivo terraform.tfvars real esta ignorado por Git.
+ami_id = "ami-xxxxxxxxxxxxxxxxx"
+db_password = "CAMBIAR_PASSWORD_LOCAL"

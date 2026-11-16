@@ -29,9 +29,21 @@ mvn_out.txt
 # Excepcion: .env.example se versiona como template
 !.env.example
 
+# Tokens locales
+tokens/
+token*.txt
+*.token
+*.secret
+*.jwt
+
 # Dependencias (frontend)
 node_modules/
 **/node_modules/
+
+# Artefactos de pruebas
+coverage/
+playwright-report/
+test-results/
 
 # VS Code
 .vscode/
@@ -62,6 +74,7 @@ HELP.md
 
 # Scripts locales
 scripts/*
+*.ps1
 
 # Artefactos de analisis (Qodana y export de inspecciones del IDE)
 qodana.sarif.json
@@ -69,3 +82,51 @@ qodana.yaml
 /index.html
 /script.js
 /styles.css
+
+# Documentacion interna, evidencias y uso del agente
+_interno/
+internal/
+tools/
+docs/_interno/
+docs/EP3/evidencias/
+docs/EP3_DEMO.md
+capturas/
+screenshots/
+evidencias/
+artifacts/
+exports/
+logs/
+backups/
+tmp/
+temp/
+.local/
+
+# Configuracion de agentes
+AGENTS.md
+.opencode/
+.claude/
+.cursor/
+.aider*
+opencode.json
+CLAUDE.md
+
+# Claves y credenciales privadas
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+*.ppk
+.npmrc
+.pypirc
+.netrc
+.git-credentials
+
+# Terraform local (el lock si se versiona)
+**/*.tfvars
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
+**/.terraform/

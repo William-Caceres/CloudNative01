@@ -1,470 +1,853 @@
-# CloudNative01 — Sistema Hotelero (DSY1107 / EP1 + EP2)
+# CloudNative01 - Sistema Hotelero (DSY1107)
 
-Plataforma de gestión hotelera tipo microservicios: 3 microservicios de dominio, un BFF y el microservicio de mensajería `rabbit-admin`, todos en Spring Boot 4, que validan tokens JWT emitidos por Microsoft Entra ID, una base de datos MySQL y un frontend React 19 (lenguaje autorizado por el docente en reemplazo de Angular) que se autentica contra Entra ID con la librería MSAL.
+Plataforma hotelera con microservicios Spring Boot 4, frontend React 19 con MSAL,
+MySQL 8, RabbitMQ de 3 nodos y Kafka de 3 brokers. El despliegue cloud usa
+Terraform, API Gateway HTTP con JWT de Entra ID, frontend con Nginx y un BFF que
+agrega dominios. API Gateway usa la EIP estable del frontend y Nginx enruta las
+rutas API hacia las IPs privadas de los microservicios.
 
-> **Estado actual:** núcleo completo y verificado (148 tests, mensajería con evidencia en vivo y frontend público vía el API Gateway). Placeholder heredado de EP1: `/registro`.
+> **Estado:** EP1, EP2 y EP3 implementados. La evaluación final incluye RabbitMQ,
+> Kafka, administración de mensajería, pruebas automatizadas y manejo de fallos.
+>
+> **Entrega EV3:** 16-nov-2026 12:00 UTC-3.
+> **Presentación:** 16-nov-2026 14:40 UTC-3.
+>
+> **Actualización:** 16-nov-2026.
+>
+> **Frontend:** React 19 fue autorizado por el docente para EV1, EV2 y EV3. La
+> referencia académica menciona Angular, pero el docente aprobó React.
 
-**Cómo cumple la rúbrica EP1:**
-- **Indicador 1 — MSAL (60%):** login/logout por redirección de Entra ID, guard de rutas por autenticación y rol (`RequireAuth`), inyección del `Bearer` token en cada petición HTTP, roles/scopes leídos desde los claims del JWT, vistas funcionales.
-- **Indicador 2 — BFF (40%):** microservicio `bff` (Spring Boot 4.1.1, `:8084`) que valida el JWT de Entra ID (`issuer-uri`, `audience`, firma JWKS y vigencia), exige autenticación en todas sus rutas, aplica autorización por rol con `@PreAuthorize` y responde `401 AUTH-001` o `403 AUTH-003`. Agrega usuario + reservas + el catálogo de servicios (`GET /api/v1/bff/dashboard`) reenviando el `Bearer` al API Gateway. La vista "Mi cuenta" del frontend lo consume.
+## 1. Alcance
 
-**Cómo cumple la rúbrica EP2 (mensajería):**
-- **Centralización (12%) + Beans (13%):** topología completa en `rabbit-admin/src/main/resources/application.yml` (`hotel.mensajeria.*`) y beans `Queue`/`Exchange`/`Binding` en `RabbitMqConfig` (3 colas + 3 DLQ, exchange topic para eventos, direct para tareas puntuales y DLX). Cero nombres sueltos en el código.
-- **Separación (10%) + Servicio dedicado (10%):** microservicio `rabbit-admin` (`:8085`) con `RabbitAdminService` como única puerta a AMQP. Los controladores no conocen detalles de RabbitMQ y los procesadores de dominio no conocen la mensajería.
-- **Consumidores por dominio (15%):** `@RabbitListener` agrupados en `listener/notificacion`, `listener/ticket` y `listener/documento` (cada uno con su procesador).
-- **ACK y errores (20%):** política de 3 rutas — éxito → `basicAck`, evento inválido → `NACK` sin reencolar (DLQ directa), fallo recuperable → `NACK` reencolando **una vez**, y si la reentrega falla, `NACK` sin reencolar (DLQ). Todo registrado en logs.
-- **Admin REST (13%) + Validación (7%):** endpoints REST con DTOs `@Valid` y códigos `VALID-001/002` y `MSJ-*`.
-- **Productores:** `reserva` publica `reserva.creada` (→ notificaciones + tickets) y `servicio` publica `servicio.actualizado` (→ documentos), ambos **fail-safe** (si RabbitMQ cae, la operación de negocio no se pierde) y con **publisher confirms + returns** (modo `correlated`): cada publicación queda confirmada por el broker y un mensaje sin cola destino se devuelve y se registra (`PublicacionObservable`).
-- **Presentación (18%):** clúster RabbitMQ de **2 nodos** con docker-compose en `cn-rabbit`, dashboard por túnel SSH, y todo re-demostrable a través del API Gateway.
+- **Alcance:** ADMIN crea la reserva y confirma el pago, CLIENTE consulta sus
+  reservas, el dashboard y los servicios. El autoservicio del Cliente no forma
+  parte del alcance actual.
+- La UI no tiene formulario de creación de reserva ni de pago. Esas operaciones
+  se ejecutan por API con un token `ADMIN` y luego se reflejan en la UI.
+- El frontend consume datos reales del API Gateway y del BFF, no usa datos simulados (mocks).
+- La mensajería se demuestra con RabbitMQ, Kafka, sus UIs y los endpoints de
+  administración de `broker-admin`.
 
-## Arquitectura
+## 2. Arquitectura
 
-### 1. Visión general
-
-CloudNative01 es una plataforma de gestión hotelera: frontend React 19 con login MSAL contra Entra ID, un API Gateway que valida el JWT y enruta, un BFF que agrega los dominios para las vistas, 3 microservicios de negocio (`usuario`, `reserva` y `servicio`) y `rabbit-admin`, el microservicio dedicado a la mensajería. `reserva` y `servicio` publican sus eventos a un clúster RabbitMQ de 2 nodos, y `rabbit-admin` los consume con ACK manual y DLQ.
+#### Flujo de solicitud
 
 ```mermaid
 flowchart LR
-    U[Usuario] -->|HTTPS + MSAL| G[API Gateway HTTP API v2<br/>authorizer JWT de Entra · CORS acotado]
-    G -->|GET / y resto del SPA| F[Frontend React + Nginx]
-    G -->|/api/v1/bff/*| B[BFF]
-    G -->|/api/v1/usuario/*| US[usuario]
-    G -->|/api/v1/reserva/*| R[reserva]
-    G -->|/api/v1/servicio/*| S[servicio]
-    G -->|/api/v1/rabbit-admin/*| RA[rabbit-admin]
-    B -.->|reenvía el Bearer| G
-    US --> DB[(MySQL 8<br/>h_usuario · h_reserva · h_servicio)]
+    U[Usuario]
+    IDP[Entra ID]
+
+    subgraph ACCESO [Acceso público]
+        G[API Gateway<br/>JWT]
+        F[Frontend + Nginx<br/>EIP]
+    end
+
+    subgraph SERVICIOS [Servicios]
+        B[BFF<br/>agregador]
+        US[usuario]
+        R[reserva<br/>API + outbox]
+        S[servicio]
+        BA[broker-admin<br/>consumidores + admin]
+    end
+
+    U -->|"login MSAL"| IDP
+    U -->|"HTTPS + Bearer"| G
+    G -.->|"JWKS"| IDP
+    G -->|"SPA + /api/v1/*"| F
+
+    F -->|"/api/v1/bff/*"| B
+    F -->|"/api/v1/usuario/*"| US
+    F -->|"/api/v1/reserva/*"| R
+    F -->|"/api/v1/servicio/*"| S
+    F -->|"/api/v1/broker-admin/*"| BA
+    F -->|"/api/v1/rabbit-admin/*"| BA
+```
+
+El BFF aparece como agregador del frontend. En cloud consulta API Gateway con el
+mismo `Bearer`, en local consulta las URLs directas de los servicios. Esa llamada
+se omite del dibujo para evitar un ciclo visual.
+
+#### Flujo de eventos y datos
+
+```mermaid
+flowchart LR
+    US[usuario]
+    R[reserva<br/>API + outbox]
+    S[servicio]
+
+    subgraph MENSAJERIA [Mensajería]
+        MQ[(RabbitMQ<br/>3 nodos quórum)]
+        K[(Kafka<br/>3 brokers)]
+        BA[broker-admin<br/>consumidores + admin]
+    end
+
+    DB[(MySQL 8)]
+
+    US --> DB
     R --> DB
     S --> DB
-    R -->|reserva.creada| MQ[(RabbitMQ<br/>clúster de 2 nodos)]
-    S -->|servicio.actualizado| MQ
-    MQ -->|3 colas con DLQ| RA
+    BA -.->|"evento_procesado"| DB
+
+    R -->|"reserva.creada"| MQ
+    R -->|"reservas + pagos"| K
+    S -->|"servicio.actualizado"| MQ
+    MQ -->|"3 colas + DLQ"| BA
+    K -->|"analytics + audit"| BA
 ```
 
-Cada microservicio es dueño de su base (`h_usuario`, `h_reserva`, `h_servicio`) dentro de una única instancia MySQL 8.
+| Ruta pública | Destino interno | Autorización |
+|---|---|---|
+| `GET /` | Frontend React | NONE |
+| `GET /{proxy+}` | Frontend React | NONE |
+| `/api/v1/bff/*` | BFF | JWT |
+| `/api/v1/usuario/*` | usuario | JWT |
+| `/api/v1/reserva/*` | reserva | JWT |
+| `/api/v1/servicio/*` | servicio | JWT |
+| `/api/v1/broker-admin/*` | broker-admin | JWT |
+| `/api/v1/rabbit-admin/*` | broker-admin (alias) | JWT |
+| `OPTIONS /api/v1/*` | Servicio correspondiente | NONE |
 
-### 2. Capas
+El BFF reutiliza API Gateway con el token `Bearer` para agregar usuario, reservas
+y servicios. En cloud usa `MICROSERVICIOS_*_URL` apuntando al API Gateway. En
+local usa las URLs directas de los servicios. API Gateway no integra directamente
+con las IPs públicas de los microservicios. Sus integraciones apuntan a la EIP
+del frontend. Nginx recibe `/api/v1/*` y hace proxy a las IPs privadas, que
+permanecen estables cuando las EC2 se detienen y vuelven a iniciar.
 
-| Capa | Tecnología | Puerto |
-|------|-----------|--------|
-| Frontend | React 19 + Vite 8 + MSAL (Microsoft Entra ID) | `5173` dev · `80` EC2 · gateway https (público) |
-| Microservicio usuario | Spring Boot 4.1.1 + OAuth2 Resource Server | `8083` |
-| Microservicio reserva | Spring Boot 4.1.1 + OAuth2 Resource Server | `8081` |
-| Microservicio servicio | Spring Boot 4.1.1 + OAuth2 Resource Server | `8082` |
-| BFF | Spring Boot 4.1.1 + OAuth2 Resource Server | `8084` |
-| rabbit-admin | Spring Boot 4.1.1 + OAuth2 Resource Server + Spring AMQP | `8085` |
-| RabbitMQ | Clúster de 2 nodos (docker-compose, `rabbitmq:4.2-management`) | `5672` (AMQP) |
-| Base de datos | MySQL 8 (Docker en local · nativo en la EC2 de usuario) | `3306` |
+### Lectura rápida
 
-Cada microservicio lee su configuración por variables de entorno (todas con default en `application.properties`) y valida JWT con el issuer de Entra ID del tenant `tenaninternoemihormazabal.onmicrosoft.com` y la audience del client ID de la app.
+- El usuario inicia sesión en Entra ID y API Gateway valida el JWT.
+- API Gateway sirve la SPA y las rutas API a través de la EIP del frontend.
+- Nginx sirve la SPA y hace proxy de `/api/v1/*` a los servicios.
+- `reserva` persiste y publica por outbox, `servicio` publica directo a Rabbit.
+- `broker-admin` consume Rabbit y Kafka y registra la deduplicación en MySQL.
 
-**Presentación.** `Frontend/` es la aplicación React 19 + Vite 8: login por redirección con MSAL, guard de rutas por autenticación y rol (`RequireAuth`), `apiClient` que inyecta el `Bearer` en cada petición, y las vistas de servicios, cuenta y panel de administración. Se sirve por nginx en su EC2 y, como vía pública, por el mismo API Gateway — MSAL exige contexto seguro, así que la URL oficial del frontend es la del gateway (https).
+### Componentes
 
-**Entrada y orquestación.** El API Gateway HTTP API v2 valida el token con el authorizer JWT de Entra (firma, `iss`, `aud`), acota CORS a los orígenes propios y enruta `/api/v1/{micro}/{proxy+}` a cada microservicio, además de servir el SPA en `GET /` y `GET /{proxy+}` sin JWT. El **BFF** es el punto de entrada de las vistas que agregan dominios: compone usuario + reservas + catálogo en `GET /api/v1/bff/dashboard` y el resumen global en `GET /api/v1/bff/admin/resumen` (ADMIN), reenviando el `Bearer` al gateway.
+| Componente | Tecnología | Puerto |
+|---|---|---|
+| Frontend | React 19 + Vite 8 + MSAL + Nginx | `80` EC2, EIP y gateway HTTPS |
+| usuario | Spring Boot 4.1.1 + OAuth2 | `8083` |
+| reserva | Spring Boot 4.1.1 + OAuth2 | `8081` |
+| servicio | Spring Boot 4.1.1 + OAuth2 | `8082` |
+| BFF | Spring Boot 4.1.1 + OAuth2 | `8084` |
+| broker-admin | Spring Boot 4.1.1 + AMQP + Kafka Admin | `8085` |
+| RabbitMQ | 3 nodos cloud, colas quórum y gestión | `5672` interno, `15672` público |
+| Kafka | 3 Zookeeper + 3 brokers + Kafka UI | `9092-9094` interno, `8080` público |
+| MySQL | MySQL 8 en EC2 usuario | `3306` interno |
 
-**Dominio distribuido.** Cada microservicio es dueño de un contexto:
+### Límites de la arquitectura de laboratorio
 
-- `usuario`: identidad local (la fila nace en el primer `/me`), roles y CRUD de usuarios.
-- `reserva`: reservas y publicación de `reserva.creada` al confirmar el alta.
-- `servicio`: catálogo de servicios del hotel y publicación de `servicio.actualizado`.
-- `rabbit-admin`: administración REST del broker y los 3 consumidores por dominio (notificaciones, tickets y documentos).
+- Los 3 brokers Kafka, los 3 Zookeeper y Kafka UI corren en una sola EC2
+  (`cn-kafka`). Hay redundancia de procesos, no de host ni de zona.
+- Rabbit3 comparte host con Kafka. Si se detiene `cn-kafka`, también se detiene
+  el tercer nodo de Rabbit.
+- Toda la infraestructura está en una sola subred y una sola zona de
+  disponibilidad. No hay ALB, Auto Scaling, réplica de MySQL ni backup
+  automático.
+- Kafka UI no tiene autenticación. Rabbit UI usa credenciales de laboratorio.
+- El frontend y MySQL son instancias únicas.
 
-**Mensajería.** Clúster RabbitMQ de 2 nodos en `cn-rabbit` (docker-compose), con la topología declarada una sola vez por `rabbit-admin` al arrancar. El detalle está en [Mensajería (EP2)](#mensajería-ep2).
+### Flujo de una solicitud
 
-**Persistencia.** MySQL 8 con una base por microservicio (`h_usuario`, `h_reserva`, `h_servicio`): en la nube vive en la EC2 de `usuario` y solo acepta conexiones entre las EC2 del grupo, y en local es el contenedor `hotel-mysql`. Las tablas las crea Hibernate (`ddl-auto=update`) y los seeds se aplican a mano tras el primer arranque (ver [Puesta en marcha](#puesta-en-marcha-paso-a-paso)).
+1. El navegador inicia sesión con MSAL contra Entra ID.
+2. El frontend llama al API Gateway con `Authorization: Bearer`.
+3. El autorizador (authorizer) valida firma, emisor y audiencia.
+4. El gateway enruta `/api/v1/...` a la EIP estable del frontend.
+5. Nginx recibe la ruta y hace proxy al microservicio interno correspondiente.
+6. El microservicio revalida el token y aplica `@PreAuthorize`.
+7. El servicio persiste en su base. `reserva` registra el evento en su outbox,
+   `servicio` publica directo a Rabbit.
+8. El proceso de publicación (relay) del servicio de reservas envía el evento a
+   RabbitMQ y Kafka.
+9. Rabbit/Kafka alimentan a `broker-admin`, que expone métricas, DLT y
+   administración.
 
-### 3. Flujo de una solicitud
+## 3. Estructura
 
-1. El usuario abre el SPA (por el gateway) e inicia sesión con MSAL contra Entra ID.
-2. El navegador llama al API Gateway con `Authorization: Bearer` — el SPA y la API comparten origen.
-3. El gateway valida el token (authorizer JWT) y enruta `/api/v1/{micro}/…` al microservicio correspondiente.
-4. El microservicio revalida el token (resource server), aplica el rol con `@PreAuthorize` y ejecuta la regla de negocio.
-5. Persiste en su base y, si el flujo lo amerita, publica el evento al broker con confirmación (fail-safe: la operación no se pierde si RabbitMQ cae).
-6. La respuesta vuelve normalizada al navegador. Si la vista agrega varios dominios (Mi cuenta), el BFF es quien compone la respuesta.
-
-### 4. Seguridad
-
-- **OAuth2/JWT con Entra ID** como proveedor de identidad: MSAL en el frontend y OAuth2 Resource Server en los 5 microservicios.
-- **Doble validación:** el gateway valida firma, `iss` y `aud` en el borde, y cada microservicio revalida el token (defensa en profundidad).
-- **Autorización por rol:** el claim `roles` del JWT se aplica con `@PreAuthorize` (escrituras solo `ADMIN`), con errores normalizados `401 AUTH-001` y `403 AUTH-003`.
-- **CORS acotado:** nunca abierto, orígenes por variable `CORS_ORIGINS` (localhost + Elastic IP del frontend) y métodos y cabeceras explícitos, tanto en el gateway como en los 5 microservicios.
-- **Superficie mínima:** el navegador solo conoce el API Gateway, y no hay secretos en el repositorio (las contraseñas de MySQL y Rabbit las genera Terraform y los `.env` reales no se versionan).
-
-### 5. Estado actual
-
-| Componente | Estado |
-| --- | --- |
-| Frontend (MSAL) | Login/logout, guard por rol, `Bearer` automático y vistas de servicios, cuenta y panel admin operativas |
-| BFF | Dashboard agregado y resumen admin sobre el gateway |
-| Microservicios | CRUD completo con validación de entrada, roles y errores normalizados |
-| Mensajería | Clúster de 2 nodos, topología centralizada, productores fail-safe y 3 consumidores con ACK manual + DLQ |
-| Infraestructura | VPC propia, 7 EC2, API Gateway con JWT, Elastic IP y CORS acotado (Terraform) |
-| Pruebas | 148 tests (JUnit, MockMvc, H2 y broker real) con cobertura JaCoCo |
-
-**Pendiente declarado:** el alta de usuarios (`/registro`) es un placeholder de EP1 (sin enlace en la navegación). El microservicio `reserva` ya expone todos sus endpoints y `/mis_reservas` lista las reservas del usuario a través del BFF.
-
-## Estructura del repositorio
-
-```
-├── Frontend/            # React 19 + Vite + MSAL
-│   └── src/
-│       ├── auth/        # MSAL (authConfig, msalInstance, authUtils), interceptor HTTP y RequireAuth
-│       ├── components/  # Tarjeta_servicios, Formulario_servicios, Modificar_servicios
-│       ├── pages/       # Inicio, Login, Registrarse, Mi_cuenta, Servicios (lista y detalle), Reservas (lista y detalle), Panel_admin, etc.
-│       ├── routes/      # RouterConfig (rutas protegidas por RequireAuth)
-│       ├── services/    # servicioService y bffService (consumo vía apiClient)
-│       └── utils/       # environment.ts (tenant, clientId, redirectUri y base URL del API Gateway)
-├── usuario/             # Microservicio: usuarios  (Spring Boot 4, :8083)
-├── reserva/             # Microservicio: reservas  (Spring Boot 4, :8081)
-├── servicio/            # Microservicio: servicios (Spring Boot 4, :8082)
-├── bff/                 # BFF: dashboard del frontend (Spring Boot 4, :8084)
-├── rabbit-admin/        # Administración de RabbitMQ + consumidores por dominio (Spring Boot 4, :8085)
-├── db-init/             # init.sql — crea h_usuario, h_reserva y h_servicio (solo DDL de infraestructura)
-├── seeds/               # seed_usuarios.sql + seed_servicios.sql (idempotentes, se aplican a mano)
-├── infra/               # Terraform (AWS): VPC propia + 7 EC2 t2.micro + SG + API Gateway con JWT
-│   └── rabbit-cluster/  # docker-compose del clúster RabbitMQ de 2 nodos + script de unión al clúster
-├── docker-compose.yml   # MySQL 8 con datos persistidos en volumen
-└── .env.example         # Plantilla de variables de entorno (DB, puertos, tenant de Entra)
+```text
+├── Frontend/            React, MSAL, páginas, servicios y pruebas
+├── usuario/             Usuarios y MySQL (:8083)
+├── reserva/             Reservas, pagos, idempotencia, outbox (:8081)
+├── servicio/            Catálogo de servicios (:8082)
+├── bff/                 Agregación para el frontend (:8084)
+├── broker-admin/        Admin Rabbit/Kafka, consumidores y DLT (:8085)
+├── infra/               Terraform AWS, clusters y Nginx local/cloud
+├── contracts/           Contrato compartido de eventos
+├── db-init/             Bases MySQL locales
+└── .github/workflows/   CI de backend, frontend y Terraform
 ```
 
-## Requisitos previos
+El despliegue cloud crea **9 EC2**:
 
-- **Docker Desktop** (para MySQL) o un MySQL 8.0 local en `localhost:3306`
-- **Java 21** — los microservicios compilan a bytecode 21 (tests con `mvnw.cmd` en usuario/reserva/servicio y `mvn` global en bff/rabbit-admin, con JAVA_HOME apuntando a JDK 21+)
-- **Node.js 20.19+ o 22.12+** (requisito real de Vite 8. Node 18 no compila este proyecto)
-- Una cuenta de usuario en el tenant de Entra ID `tenaninternoemihormazabal.onmicrosoft.com`
+| EC2 | Función |
+|---|---|
+| `cn-frontend` | SPA, Nginx y proxy API/UI, EIP estable |
+| `cn-usuario` | Microservicio usuario y MySQL |
+| `cn-reserva` | Microservicio reserva |
+| `cn-servicio` | Microservicio servicio |
+| `cn-bff` | BFF |
+| `cn-rabbit` | Rabbit nodo 1 |
+| `cn-rabbit2` | Rabbit nodo 2 |
+| `cn-kafka` | Kafka, Zookeeper, Kafka UI y Rabbit nodo 3 |
+| `cn-broker-admin` | broker-admin |
 
-## Puesta en marcha (paso a paso)
+## 4. Ejecución local
 
-### 1. Base de datos
+### Requisitos
 
-```bash
+- Windows con PowerShell.
+- Java 21.
+- Maven 3.9.16 o los wrappers incluidos en `usuario`, `reserva` y `servicio`.
+- Node.js 20.19+ o 22.12+.
+- Docker Desktop.
+- Acceso al tenant de Entra ID.
+
+### 4.1 MySQL local
+
+```powershell
+Copy-Item .env.example .env
 docker compose up -d
-```
-
-Levanta el contenedor `hotel-mysql` (usuario `root`, contraseña `root`) y, en la primera inicialización, ejecuta `db-init/init.sql` (crea `h_usuario`, `h_reserva` y `h_servicio`).
-
-Las **tablas** no las crea MySQL: las crea Hibernate (`ddl-auto=update`) al arrancar cada microservicio. Por eso el **seed se aplica manualmente y siempre después del primer arranque** de los microservicios. Es idempotente:
-
-```bash
-docker exec -i hotel-mysql mysql -uroot -proot < seeds/seed_usuarios.sql
-docker exec -i hotel-mysql mysql -uroot -proot < seeds/seed_servicios.sql
-```
-
-**En PowerShell (Windows)** la redirección `<` no existe, usa `cmd`:
-
-```powershell
-cmd /c "docker exec -i hotel-mysql mysql -uroot -proot < seeds\seed_usuarios.sql"
-cmd /c "docker exec -i hotel-mysql mysql -uroot -proot < seeds\seed_servicios.sql"
-```
-
-### 2. Microservicios
-
-Compilar y levantar cada microservicio en su terminal (usa el wrapper inclusivo, no el `mvn` global):
-
-```bash
-cd usuario && .\mvnw.cmd package -DskipTests
-java -jar target\usuario-0.0.1-SNAPSHOT.jar
-```
-
-```bash
-cd reserva && .\mvnw.cmd package -DskipTests
-java -jar target\reserva-0.0.1-SNAPSHOT.jar
-```
-
-```bash
-cd servicio && .\mvnw.cmd package -DskipTests
-java -jar target\servicio-0.0.1-SNAPSHOT.jar
-```
-
-```bash
-cd bff && mvn package -DskipTests
-java -jar target\bff-0.0.1-SNAPSHOT.jar
-```
-
-> El módulo `bff` no trae wrapper de Maven, se compila con el `mvn` global (3.9.14).
-
-> `rabbit-admin` tampoco trae wrapper: `cd rabbit-admin && mvn package -DskipTests` y `java -jar target\rabbit-admin-0.0.1-SNAPSHOT.jar`, apuntando al broker con las variables `RABBITMQ_*` (ver `.env.example`).
-
-Variables de entorno que leen los microservicios (todas con default):
-
-| Variable | Default | Uso |
-|----------|---------|-----|
-| `DB_HOST` / `DB_PORT` | `localhost` / `3306` | Servidor MySQL |
-| `DB_NAME` | `h_usuario` / `h_reserva` / `h_servicio` | Base de cada microservicio |
-| `DB_USERNAME` / `DB_PASSWORD` | `root` / *(vacío)* | Credenciales MySQL |
-| `SERVER_PORT` | `8083` / `8081` / `8082` / `8084` / `8085` | Puerto del API (8085 = rabbit-admin) |
-| `AZURE_TENANT_ID` | `e34a6311-…5455a0` | Emisor del JWT (issuer) |
-| `AZURE_AUDIENCE` | `46cda96c-…1226` | Audience del JWT (client ID) |
-
-**Importante:** si se levanta el jar sin `DB_PASSWORD` y MySQL exige contraseña, el arranque falla con `Access denied using password: NO`. En Windows:
-
-```powershell
 $env:DB_PASSWORD = "root"
-java -jar target\usuario-0.0.1-SNAPSHOT.jar
 ```
 
-**Java del PATH:** los jars requieren Java 21+. Si `java -version` muestra una versión menor, ejecutar con el JDK 21 explícito (p. ej. `& "C:\Users\<usuario>\.jdks\ms-21.0.11\bin\java.exe" -jar target\...`) o dejar ese JDK primero en el PATH (de lo contrario el arranque falla con `UnsupportedClassVersionError`).
+`docker compose` usa `MYSQL_ROOT_PASSWORD` del `.env`. Los servicios usan
+`DB_PASSWORD` en su propia terminal. El compose crea `h_usuario`, `h_reserva` y
+`h_servicio`. `h_broker_admin` se crea automáticamente al iniciar `broker-admin`.
+El proyecto Compose es `cn-dev-db` y usa el volumen `cn-dev-db_mysql_data`.
 
-**Seeds (después del primer arranque de los 3 microservicios):** usuarios demo + 4 servicios de ejemplo.
+### 4.2 RabbitMQ local opcional
 
-```bash
-docker exec -i hotel-mysql mysql -uroot -proot < seeds/seed_usuarios.sql
-docker exec -i hotel-mysql mysql -uroot -proot < seeds/seed_servicios.sql
+Para demostrar el clúster local de 2 nodos:
+
+```powershell
+docker compose -f infra/rabbit-cluster/docker-compose.cluster.yml up -d
+docker exec cn-dev-rabbit-2 rabbitmqctl stop_app
+docker exec cn-dev-rabbit-2 rabbitmqctl join_cluster rabbit@rabbit-local1
+docker exec cn-dev-rabbit-2 rabbitmqctl start_app
+docker exec cn-dev-rabbit-1 rabbitmqctl cluster_status
 ```
 
-### 3. Frontend
+- Rabbit UI local: `http://localhost:15673`.
+- Rabbit AMQP local: `localhost:5673`.
+- Credenciales: las definidas en `infra/rabbit-cluster/docker-compose.cluster.yml`.
+- Los servicios deben usar `RABBITMQ_PORT=5673`, el valor por defecto es `5672`.
 
-```bash
+El clúster (cluster) local de 2 nodos sirve para demostrar la topología. No es
+HA: el quórum (quorum) de negocio es de 3 miembros y el clúster cloud de 3 nodos
+es el que tolera la caída de un nodo.
+
+### 4.3 Kafka local opcional
+
+```powershell
+$env:KAFKA_ADVERTISED_HOST = "localhost"
+$env:KAFKA_UI_PORT = "18080"
+docker compose -f infra/kafka/docker-compose.yml up -d
+```
+
+- Kafka UI local: `http://localhost:18080`.
+- Brokers: `localhost:9092`, `9093` y `9094`.
+- Clúster de Kafka UI: `grand-hotel`.
+- Kafka UI no tiene autenticación, es solo para laboratorio.
+- `KAFKA_AUTO_CREATE_TOPICS_ENABLE=false`, los topics los crea `broker-admin`.
+- El puerto `8080` está reservado por Windows, por eso el UI local usa `18080`.
+
+### 4.4 Compilación del backend
+
+La compilación (build) se ejecuta por módulo.
+
+```powershell
+cd usuario
+.\mvnw.cmd package -DskipTests
+cd ..\reserva
+.\mvnw.cmd package -DskipTests
+cd ..\servicio
+.\mvnw.cmd package -DskipTests
+cd ..\bff
+mvn package -DskipTests
+cd ..\broker-admin
+mvn package -DskipTests
+```
+
+### 4.5 Arranque local de servicios
+
+Para el arranque completo usar la sección 4.7. Si se arranca manualmente, cada
+servicio necesita su propio `SERVER_PORT`:
+
+| Servicio | Puerto |
+|---|---:|
+| reserva | `18081` |
+| servicio | `18082` |
+| usuario | `18083` |
+| bff | `18084` |
+| broker-admin | `18085` |
+
+Los servicios usan `localhost` para MySQL, Rabbit y Kafka. El modo completo de
+4.7 configura las variables de Rabbit, Kafka y CORS.
+
+### 4.6 Frontend local
+
+```powershell
 cd Frontend
-npm install
+npm ci
+$env:VITE_API_BASE_URL = "https://<api-id>.execute-api.us-east-1.amazonaws.com"
 npm run dev
 ```
 
-Abrir [http://localhost:5173](http://localhost:5173) — el `redirectUri` de MSAL es el origen actual (`window.location.origin`, registrado en Entra para localhost y para la URL pública del gateway, ver más abajo). El client ID/tenant viven en `Frontend/src/utils/environment.ts` y la base URL del API se puede sobreescribir por `VITE_API_BASE_URL` (ver `Frontend/.env.example`).
+La UI completa necesita un proxy para las rutas `/api/v1/*`:
 
-> **Modo actual (demo):** `environment.ts` apunta al API Gateway de AWS (un solo origen), así el frontend local consume la nube. Para apuntar a otro gateway se define `VITE_API_BASE_URL` (ver `Frontend/.env.example`) o se edita el valor por defecto. El BFF, en local, sigue aceptando `MICROSERVICIOS_*_URL` para resolver sus 3 destinos.
+- `/api/v1/bff/dashboard`, para reservas, cuenta y panel.
+- `/api/v1/servicio/*`, para el catálogo.
+- `/api/v1/broker-admin/*`, para el panel de mensajería.
+- `/api/v1/usuario/*`, para la sesión.
 
-> **Frontend en la nube:** el `dist` se sirve directo desde la EC2 por HTTP (puerto 80) y — la vía pública — a través del **mismo API Gateway**: `https://z8bmmvfdwh.execute-api.us-east-1.amazonaws.com/` (rutas `GET /` y `GET /{proxy+}` sin JWT). Por HTTP directo la app no inicializa (MSAL v5 exige contexto seguro, `crypto.subtle`), así que la URL oficial del frontend es la del gateway: certificado real, login MSAL operativo desde cualquier navegador y llamadas al API en el mismo origen. Su redirect URI está registrado en Entra junto al de localhost.
+No existe una llamada directa del frontend a `/api/v1/reserva`, las reservas se
+leen a través del BFF. El BFF local solo expone `/api/v1/bff/dashboard` y
+`/api/v1/bff/admin/resumen`. El modo local completo de la sección 4.7 incluye el
+proxy necesario, el arranque manual de Vite no lo incluye.
 
-Accesos locales una vez levantado el stack:
+### 4.7 Modo local privado
 
-| Recurso | Dónde |
-|---------|-------|
-| Frontend dev | `http://localhost:5173` |
-| Frontend público | `https://z8bmmvfdwh.execute-api.us-east-1.amazonaws.com/` |
-| usuario · reserva · servicio · bff · rabbit-admin | `:8083` · `:8081` · `:8082` · `:8084` · `:8085` |
-| MySQL local (Docker) | `localhost:3306` (`hotel-mysql`, root/root) |
-| Broker de tests | `localhost:5680` (`cn-rabbit-audit`, hotel/hotel123) |
-| Swagger rabbit-admin | `http://localhost:8085/swagger-ui/index.html` |
+El entorno local completo usa los grupos Docker `cn-dev-db`, `cn-dev-rabbit`,
+`cn-dev-kafka` y `cn-dev-local`. El frontend se publica en
+`http://localhost:5173`, Rabbit UI en `http://localhost:15673` y Kafka UI en
+`http://localhost:18080`.
 
-## Manual de usuario
+Los servicios locales usan `18081-18085`, porque Windows reserva el rango que
+incluye `8081-8085`. Cloud sigue usando `8081-8085`.
 
-### Iniciar sesión
+El arranque automatizado y las instrucciones de operación local se mantienen
+fuera del repositorio público. El proxy local reemplaza al API Gateway para esta
+demo, pero no replica Terraform, EIP ni el API Gateway cloud. Entra ID sigue
+siendo externo, con redirect `http://localhost:5173`.
 
-1. En la barra superior hacer clic en **Iniciar sesión**.
-2. MSAL redirige a la página de Microsoft Entra ID.
-3. Entrar con una cuenta del tenant. **Credenciales de prueba:**
+## 5. Despliegue cloud
 
-| Cuenta | Rol | Acceso |
-|--------|-----|--------|
-| `admin.prueba@tenaninternoemihormazabal.onmicrosoft.com` | Admin | Panel de administración y CRUD de servicios |
-| `cliente.prueba@tenaninternoemihormazabal.onmicrosoft.com` | Cliente | Solo lectura de servicios y de sus reservas |
+### 5.1 Terraform
 
-### Navegación y roles
+```powershell
+Copy-Item infra\terraform.tfvars.example infra\terraform.tfvars
+# Completar ami_id y db_password en infra\terraform.tfvars.
+terraform -chdir=infra init
+terraform -chdir=infra plan -out="$env:TEMP\cloudnative.tfplan"
+terraform -chdir=infra apply "$env:TEMP\cloudnative.tfplan"
+```
 
-| Ruta | Vista | Requiere |
-|------|-------|----------|
-| `/` | Inicio | Público |
-| `/registro` | Registro | **Pendiente** — vista placeholder vacía, sin enlace en la navegación |
-| `/login` | Iniciar / cerrar sesión | Público |
-| `/servicios` | Listado de servicios (desde BD) | Autenticado |
-| `/servicios/detalle` | Detalle de un servicio | Autenticado |
-| `/mi_cuenta` | Datos del JWT + resumen agregado por el BFF (usuario, reservas y catálogo de servicios) | Autenticado |
-| `/mis_reservas` | Reservas del usuario | Autenticado |
-| `/mis_reservas/detalle` | Detalle de reserva | Autenticado |
-| `/PanelAdministradores` | Panel admin (alta/baja/edición de servicios) | Rol `Admin` |
+El plan debe mostrar **0 to destroy**. `infra/terraform.tfvars` está ignorado por
+Git y no debe contener valores publicados. El laboratorio AWS Academy detiene las
+EC2 al agotar su ventana de uso de 4 horas, no ejecutar `terraform destroy` sin
+autorización.
 
-- Usuario autenticado que accede a `PanelAdministradores` sin rol `Admin` ve **"Acceso denegado"**.
-- Usuario no autenticado es redirigido a `/login` desde cualquier ruta protegida.
-- Los roles se leen del claim `roles` del JWT (no de la base de datos).
-- **Pendiente de implementar:** el alta de usuarios (`/registro`) — placeholder vacío (el alta la gestiona Entra ID), que quedó sin enlace en la navegación. Su eliminación definitiva queda para la próxima entrega, porque la gestión de usuarios corresponde a Entra ID. El microservicio **reserva ya expone todos sus endpoints** (ver sección API) y `/mis_reservas` lista las reservas del usuario a través del BFF.
+### 5.2 RabbitMQ cloud manual
 
-### Flujo de uso (inicio a fin)
+Terraform crea las EC2 `cn-rabbit`, `cn-rabbit2` y `cn-kafka`, esta última aloja
+`rabbit3`. Copiar `infra/rabbit-cluster` a `/home/ec2-user/rabbit-cluster` en los
+tres hosts y crear un `.env` por nodo con:
 
-1. Abrir `http://localhost:5173`. Vista Inicio.
-2. **Iniciar sesión** con una cuenta demo (Admin o Cliente).
-3. En `/mi_cuenta` se muestran el correo, el rol y los scopes del token, más el resumen agregado por el BFF (usuario, reservas y catálogo de servicios).
-4. Consultar `/servicios` para ver los 4 servicios sembrados (carga vía API Gateway desde el microservicio en AWS, con Bearer).
-5. **Como Admin:** entrar a `/PanelAdministradores` y probar crear / editar / eliminar servicios.
-6. Cerrar sesión con el botón correspondiente.
+```text
+RABBIT_NODE=rabbit1|rabbit2|rabbit3
+RABBIT1_IP=<rabbit1-private-ip>
+RABBIT2_IP=<rabbit2-private-ip>
+RABBIT3_IP=<kafka-private-ip>
+RABBIT_COOKIE=<cookie-de-laboratorio>
+RABBIT_USER=<rabbit-user>
+RABBIT_PASS=<rabbit-password>
+```
 
-> El flujo **Cliente → reservar → `/mis_reservas`**: la vista ya lista las reservas del usuario (vía BFF). El alta de reservas sigue siendo de administración (`POST /reserva` es ADMIN).
-
-## API (endpoints)
-
-**Todos** los endpoints requieren un JWT de Entra ID válido (`Authorization: Bearer <token>`). Sin token responden `401` y con rol insuficiente `403`. Los roles se aplican con `@PreAuthorize` (escrituras reservadas a `ADMIN`).
-
-> Los POST y PUT de `reserva`, `servicio` y `rabbit-admin` validan la entrada: campos inválidos responden `400 VALID-001` con el detalle por campo, y un JSON malformado `400 VALID-002`.
-
-> El alta de usuarios la gestiona Entra ID (MSAL). La fila local se crea en el primer acceso al endpoint `/me` y el campo `contrasenia` de la base de datos queda sin uso (los endpoints legacy `register` y `login` fueron eliminados para no exponer superficie anónima).
-
-### Microservicio usuario — `http://localhost:8083/api/v1/usuario`
-
-| Método | Ruta | Descripción | Rol |
-|--------|------|-------------|-----|
-| GET | `/me` | Usuario autenticado resuelto por el claim del token (se crea en su primer acceso) | autenticado |
-| GET | `/get/{id}` | Usuario por id | ADMIN |
-| GET | `/list` | Listar usuarios | ADMIN |
-| PUT | `/put/{id}` | Actualizar usuario | ADMIN |
-| DELETE | `/delete/{id}` | Eliminar usuario | ADMIN |
-
-### Microservicio reserva — `http://localhost:8081/api/v1/reserva`
-
-| Método | Ruta | Descripción | Rol |
-|--------|------|-------------|-----|
-| POST | `/post` | Crear reserva | ADMIN |
-| GET | `/get/{id}` | Reserva por id | autenticado |
-| GET | `/list` | Listar reservas | autenticado |
-| GET | `/usuario/{idUsuario}` | Reservas de un usuario | autenticado |
-| PUT | `/put/{id}` | Actualizar reserva | ADMIN |
-| DELETE | `/delete/{id}` | Eliminar reserva | ADMIN |
-
-### Microservicio servicio — `http://localhost:8082/api/v1/servicio`
-
-| Método | Ruta | Descripción | Rol |
-|--------|------|-------------|-----|
-| POST | `/post` | Crear servicio | ADMIN |
-| GET | `/get/{id}` | Servicio por id | autenticado |
-| GET | `/list` | Listar servicios | autenticado |
-| PUT | `/put/{id}` | Actualizar servicio | ADMIN |
-| DELETE | `/delete/{id}` | Eliminar servicio | ADMIN |
-
-### BFF — `http://localhost:8084/api/v1/bff`
-
-| Método | Ruta | Descripción | Rol |
-|--------|------|-------------|-----|
-| GET | `/dashboard` | Agrega usuario + reservas + el catálogo de servicios | autenticado |
-| GET | `/admin/resumen` | Resumen global: usuarios + reservas + servicios | ADMIN |
-
-## Mensajería (EP2)
-
-Topología declarada **únicamente** por `rabbit-admin` al arrancar (idempotente):
-
-| Cola | DLQ | Binding | Evento |
-|------|-----|---------|--------|
-| `notificaciones.queue` | `notificaciones.dlq` | `hotel.topic` ← `reserva.*` | `reserva.creada` |
-| `tickets.queue` | `tickets.dlq` | `hotel.topic` ← `reserva.creada` y `hotel.direct` ← `ticket.generar` | `reserva.creada` |
-| `documentos.queue` | `documentos.dlq` | `hotel.topic` ← `servicio.*` | `servicio.actualizado` |
-
-- Todos los exchanges y colas son `durable`. Las colas derivan a su DLQ por `hotel.dlx` y cada DLQ retiene sus mensajes 24 h (`x-message-ttl`) como política de retención.
-- Los eventos viajan como JSON (`JacksonJsonMessageConverter`, idéntico en productores y consumidores).
-- **ACK manual (3 rutas):** éxito → `basicAck` · inválido → `basicNack(false)` (DLQ directa) · recuperable → `basicNack(true)` (un reintento) y en la reentrega → `basicNack(false)` (DLQ).
-
-### API del administrador — `http://localhost:8085/api/v1/rabbit-admin`
-
-| Método | Ruta | Descripción | Rol |
-|--------|------|-------------|-----|
-| POST | `/queues` | Crear cola durable | ADMIN |
-| GET | `/queues/{nombre}` | Info de una cola (mensajes, consumidores) | autenticado |
-| DELETE | `/queues/{nombre}` | Eliminar cola | ADMIN |
-| POST | `/queues/{nombre}/purge` | Vaciar cola | ADMIN |
-| POST | `/exchanges` | Crear exchange (direct/topic) | ADMIN |
-| DELETE | `/exchanges/{nombre}` | Eliminar exchange (idempotente en el broker) | ADMIN |
-| POST | `/bindings` | Crear binding cola↔exchange | ADMIN |
-| POST | `/publish` | Publicar un mensaje de prueba (JSON) en un exchange | ADMIN |
-
-> `rabbit-admin` expone además Swagger UI en `/swagger-ui/index.html` (junto con `/v3/api-docs`, sin token. La API de administración sigue exigiendo JWT).
-
-### Mensajería en local
-
-Los tests de integración usan el contenedor `cn-rabbit-audit` (`5680`/`15680`, usuario `hotel`/`hotel123`):
+En cada host:
 
 ```bash
-docker run -d --name cn-rabbit-audit -p 5680:5672 -p 15680:15672 -e RABBITMQ_DEFAULT_USER=hotel -e RABBITMQ_DEFAULT_PASS=hotel123 rabbitmq:4.2-management
+docker compose --env-file .env up -d
 ```
 
-Sin ese contenedor, las suites de integración se omiten solas (los unitarios corren igual).
-
-## Pruebas
+Unir los nodos desde `rabbit2` y `rabbit3`:
 
 ```bash
-.\mvnw.cmd test     # en usuario / reserva / servicio (wrapper)
-mvn test            # en bff y rabbit-admin (usan Maven global)
-npm run lint        # en Frontend (oxlint)
-npm run build       # en Frontend (build de producción)
+docker exec rabbit2 rabbitmqctl stop_app
+docker exec rabbit2 rabbitmqctl join_cluster rabbit@rabbit1
+docker exec rabbit2 rabbitmqctl start_app
+docker exec rabbit3 rabbitmqctl stop_app
+docker exec rabbit3 rabbitmqctl join_cluster rabbit@rabbit1
+docker exec rabbit3 rabbitmqctl start_app
+docker exec rabbit1 rabbitmqctl cluster_status
 ```
 
-El proyecto suma **148 tests** (usuario 28, reserva 29, servicio 30, bff 14, rabbit-admin 47): arranque de contexto, mapeo de claims JWT→roles, control de acceso con cuerpos `AUTH-001`/`AUTH-003`, rutas inexistentes y métodos no permitidos (`404 SYS-002` / `405 SYS-003`), resolución por token del endpoint `/me` (con creación del usuario en su primer acceso), alta concurrente tolerante a conflicto, validación de entrada de los dominios (`400 VALID-001` por campo, `400 VALID-002` para JSON ilegible o parámetro de ruta con formato inválido, y `415 VALID-002` para content-type no soportado) y dashboard/resumen por token en el BFF. Los servicios de `usuario`, `reserva` y `servicio` tienen cobertura de integración real (H2 + broker): CRUD completo, rutas de no-encontrado y evento de alta verificado en la cola de auditoría. La cobertura se mide con **JaCoCo** en los 5 módulos (reporte HTML en `target/site/jacoco/`): **74,6% de líneas y 75,9% de ramas** en el global (usuario 60,3 · reserva 71,2 · servicio 75,7 · bff 78,6 · rabbit-admin 84,3). En `rabbit-admin`: topología y CRUD contra un **broker real**, contrato de confirmación de los 3 consumidores (ACK/NACK/DLQ), **flujo real de reintentos** (fallo transitorio → confirma al segundo intento, fallo persistente → un reintento → DLQ), prueba de volumen ligera (200 eventos), publicación de prueba (`POST /publish`) contra broker real y exposición de Swagger. Los productores de `reserva` y `servicio` tienen unitarios (exchange, routing key, payload, fail-safe y observador de confirms/returns) e integración contra broker con cola de auditoría (incluye publicación confirmada y devolución de un mensaje sin cola destino). La batería de rendimiento (escalera de VUs sobre `GET /servicio/list` y `POST /reserva/post`, sondas por capa y ventana de recuperación) se ejecutó contra el API Gateway. El informe de rendimiento y los resultados crudos acompañan las evidencias de la entrega.
+Si `cn-kafka` se detiene, Rabbit queda con 2 de 3 nodos y Kafka no está
+disponible. Rabbit puede seguir operando con 2 nodos, pero el laboratorio pierde
+la HA completa de Kafka.
 
-### Análisis estático (SonarQube)
+### 5.3 Kafka cloud manual
 
-Los **148 tests automatizados** (JUnit 5 + MockMvc + integración con H2 y broker) fueron revisados con **SonarQube** (scanner del IDE IntelliJ IDEA), fuente fidedigna de análisis estático, junto con el código de los 5 módulos Java, el frontend y el IaC de Terraform. Los avisos remanentes son **convenciones deliberadas del proyecto, no defectos**: los campos `snake_case` de las entidades (`s_nombre`, `a_paterno`, `dv_rut`, …) mapean las columnas MySQL ya definidas, los prefijos de capa de controladores y servicios (`uc_`/`u_`, `rc_`/`r_`, `sc_`/`s_`, `rac_`/`ra_`, `bc_`/`b_`, presentes también en locales como `u_mod`, `r_mod` y `s_mod`) marcan su módulo, los nombres de los componentes JSX son espejo de sus clases, y las sugerencias de sintaxis Java 22+ quedan descartadas al fijar `sonar.java.source=21`. El scan final deja **70 avisos** (exclusivamente esas convenciones) con **0 Security Hotspots** y el análisis de secretos completado. El único hallazgo real (índice del array como `key` en las listas de React) fue corregido. En EP2 se corrigieron además constantes duplicadas, expresiones regulares con backtracking, paréntesis innecesarios y zonas horarias explícitas en **todos** los módulos. En el IaC, la IP pública de las EC2 es deliberada —el API Gateway integra por IP y el laboratorio exige SSH— y quedó explícita en `main.tf`.
+Copiar `infra/kafka` a `/opt/kafka` en `cn-kafka` y crear `.env`:
 
-## Infraestructura (AWS)
-
-`infra/main.tf` despliega en `us-east-1`, en VPC propia (`10.0.0.0/16` + subred pública):
-
-```
-Navegador (MSAL → Entra ID)
-   │  https + Bearer JWT
-   ▼
-API Gateway HTTP API v2  ·  JWT authorizer Entra  ·  CORS acotado  ·  logs 30 días
-   │  sirve el SPA en /  ·  enruta /api/v1/{micro}/… a cada microservicio
-   ▼
-VPC 10.0.0.0/16 (subred pública, 7 EC2 t2.micro AL2023)
-   ├─ cn-frontend       nginx + dist React  ·  Elastic IP 34.237.20.142
-   ├─ cn-usuario        :8083  microservicio + MySQL 8 (h_usuario, h_reserva, h_servicio)
-   ├─ cn-reserva        :8081  publica reserva.creada
-   ├─ cn-servicio       :8082  publica servicio.actualizado
-   ├─ cn-bff            :8084  agrega datos y consume la API vía gateway
-   ├─ cn-rabbit         clúster RabbitMQ de 2 nodos (docker compose)
-   └─ cn-rabbit-admin   :8085  admin REST + 3 consumidores (ACK manual)
-Security Group: 80 y 8081-8085 abiertos  ·  22 con llave  ·  3306 y 5672 solo entre EC2 del grupo
+```text
+KAFKA_ADVERTISED_HOST=<kafka-private-ip>
 ```
 
-- **7 EC2 `t2.micro`** (AL2023): frontend (nginx), `usuario` (microservicio + MySQL 8 con `h_usuario`, `h_reserva`, `h_servicio`), `reserva`, `servicio` y `bff` (microservicio + JDK 21), más las dos de EP2: `cn-rabbit` (clúster RabbitMQ de 2 nodos con docker-compose) y `cn-rabbit-admin` (microservicio `rabbit-admin`, `:8085`). Las 7 usan el mismo par `cloudnative-labs`, gestionado por Terraform desde `infra/keys/cloudnative-labs.pub` (la privada no está en el repo). Cada microservicio tiene su servicio `systemd` (`cn-*`).
-- **Security Group**: 8081–8085 y 80 públicos (API Gateway + verificación), SSH 22 (lab), 3306 y **5672 solo entre EC2 del grupo**. El dashboard de RabbitMQ (`15672`) **no se abre a Internet**: se accede por túnel SSH.
-- **API Gateway HTTP API v2** con authorizer **JWT Entra** (valida, no solo pasa el token), CORS y rutas `OPTIONS` sin auth para que el preflight no caiga en el authorizer. Proxy `/{proxy+}` hacia cada microservicio, incluido `rabbit-admin`, y logs de acceso en CloudWatch (retención 30 días). También sirve el frontend público en `GET /` y `GET /{proxy+}` sin JWT, solo archivos estáticos. Las rutas `/api/v1/*` mantienen su authorizer JWT.
+Levantar el clúster:
 
 ```bash
-cd infra
-terraform init
-terraform plan
-terraform apply   # responde yes
+cd /opt/kafka
+docker compose --env-file .env up -d
 ```
 
-Las credenciales del broker las genera Terraform (`random_password`, igual que la de MySQL): no viven en el repositorio y se recuperan con `terraform output -raw rabbit_pass` (quedan en el `tfstate` local, que no se commitea).
+Debe haber 3 Zookeeper, 3 brokers y Kafka UI. La UI se publica en
+`http://<kafka-public-ip>:8080`, clúster `grand-hotel`.
 
-Despliegue post-apply:
+Los 3 brokers y los 3 Zookeeper comparten la misma EC2. Kafka UI no tiene
+autenticación y los brokers usan `PLAINTEXT`. Es una configuración de
+laboratorio, en producción deben separarse hosts, agregar TLS/SASL y proteger
+las UIs.
 
-1. Subir los 5 jars (`usuario`, `reserva`, `servicio`, `bff`, `rabbit-admin`) a `/opt/apps/` y `systemctl start cn-*`.
-2. **Clúster RabbitMQ:** copiar `infra/rabbit-cluster/` a la EC2 `cn-rabbit`, crear `.env` (cookie, usuario y la contraseña de `terraform output -raw rabbit_pass`) y ejecutar `docker compose --env-file .env up -d` y luego `bash unirse-cluster.sh`.
-3. Seeds de MySQL (`seeds/seed_usuarios.sql`, `seeds/seed_servicios.sql`) y `dist/` del frontend a `/var/www/grandhotel` + `sudo chmod -R a+rX /var/www/grandhotel`.
-4. **Orden de arranque en la nube:** broker → `rabbit-admin` (declara la topología) → `reserva`/`servicio` (productores) → resto de microservicios.
+### 5.4 Servicios y base de broker-admin
 
-> **CORS de los microservicios:** cada servicio limita sus orígenes con la variable `CORS_ORIGINS` (default `http://localhost:5173`, nunca queda abierto) y sus métodos y cabeceras permitidas son explícitos (`authorization`, `content-type`). Terraform la declara en el `user_data` de cada EC2 (los orígenes locales + la Elastic IP del frontend). En las instancias del lab está aplicada como drop-in de systemd (`/etc/systemd/system/cn-<svc>.service.d/10-cors.conf`) y se re-aplica sola si las EC2 se recrean.
+Terraform crea las unidades systemd. Copiar cada JAR a `/opt/apps` y reiniciar:
 
-Outputs: `frontend_public_ip`, `usuario_public_ip`, `usuario_private_ip`, `microservicios_public_ip`, `rabbit_public_ip`, `rabbit_admin_public_ip`, `api_url`, `rabbit_private_ip`, `db_password` y `rabbit_pass` (sensitive).
+| Servicio | JAR | EC2 | Unidad |
+|---|---|---|---|
+| usuario | `usuario-0.0.1-SNAPSHOT.jar` | `cn-usuario` | `cn-usuario` |
+| reserva | `reserva-0.0.1-SNAPSHOT.jar` | `cn-reserva` | `cn-reserva` |
+| servicio | `servicio-0.0.1-SNAPSHOT.jar` | `cn-servicio` | `cn-servicio` |
+| bff | `bff-0.0.1-SNAPSHOT.jar` | `cn-bff` | `cn-bff` |
+| broker-admin | `broker-admin-0.0.1-SNAPSHOT.jar` | `cn-broker-admin` | `cn-broker-admin` |
 
-> **Las IPs se leen de Terraform, nunca se copian a mano** (las dinámicas cambian cada vez que el lab reinicia las EC2, la del frontend es fija vía Elastic IP): `terraform -chdir=infra output` muestra todo, `terraform output -raw frontend_public_ip` da la del frontend y `terraform output -json microservicios_public_ip` las de reserva/servicio/bff. Un `apply` refresca solo las integrations del gateway y el CORS — no hay que editar archivos.
+Plantilla de despliegue:
 
-> **Despliegue limpio (gateway nuevo):** las EC2 `reserva`, `servicio` y `bff` reciben las 3 variables `MICROSERVICIOS_*_URL` con el `api_endpoint` generado por Terraform (user_data). Para el frontend, el build toma el gateway desde `environment.ts` o `VITE_API_BASE_URL` (ver `Frontend/.env.example`) — recompilar `dist/` si cambia. Tras subir el `dist/`, ejecutar `sudo chmod -R a+rX /var/www/grandhotel` para que nginx pueda leer los assets (el scp los deja con permisos restrictivos).
+```powershell
+$servicio = "reserva"
+$ip = "<reserva-ip>"
 
-> Si las EC2 se reinician cambian sus IPs públicas (salvo el frontend, que conserva su Elastic IP): correr `terraform apply` de nuevo para refrescar las integrations. En AWS Academy el lab se corta a las 4 horas y detiene las EC2, así que al volver hay que arrancarlas de nuevo — el auto-arranque de la plataforma puede fallar, verificar SIEMPRE que las 7 estén `running` antes de aplicar. **Con las EC2 detenidas el plan muestra un destroy falso (artefacto) que NO se debe aplicar** (recrearía las instancias y se perdería el despliegue). Tras la demo: `terraform destroy`.
+scp -i <ssh-key> "$servicio\target\$servicio-0.0.1-SNAPSHOT.jar" `
+  ec2-user@${ip}:/tmp/$servicio.jar
 
-**Dashboard de RabbitMQ sin exponerlo a Internet** (túnel SSH desde local):
+$jar = "/tmp/$servicio.jar"
+$destino = "/opt/apps/$servicio-0.0.1-SNAPSHOT.jar"
+ssh -i <ssh-key> ec2-user@$ip "sudo mv $jar $destino"
+ssh -i <ssh-key> ec2-user@$ip "sudo systemctl restart cn-$servicio"
+```
+
+El servicio `cn-broker-admin` necesita un archivo de configuración adicional
+(drop-in) para la base MySQL:
 
 ```bash
-ssh -i <llave-correspondiente>.pem -L 15672:localhost:15672 ec2-user@<IP_PUBLICA_DE_cn-rabbit>
+sudo mkdir -p /etc/systemd/system/cn-broker-admin.service.d
+sudo tee /etc/systemd/system/cn-broker-admin.service.d/db.conf >/dev/null <<'EOF'
+[Service]
+Environment=DB_HOST=<mysql-private-ip>
+Environment=DB_PORT=3306
+Environment=DB_NAME=h_broker_admin
+Environment=DB_USERNAME=admin
+Environment=DB_PASSWORD=<db-password>
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart cn-broker-admin
 ```
 
-Todas las EC2 usan el par `cloudnative-labs` (privada fuera del repositorio. La pública vive en `infra/keys/`).
+La aplicación crea `h_broker_admin` y la tabla `evento_procesado` al iniciar.
 
-Luego abrir `http://localhost:15672` en el navegador (usuario `hotel` y la contraseña del apply).
+### 5.5 Frontend cloud
 
-> **Drill obligatorio el día de la presentación:** Start Lab → `aws configure` → arrancar las 7 EC2 (verificar `running`) → `terraform apply` (las IPs cambian y el gateway debe refrescar sus integrations) → **smoke CON token** (login + dashboard + servicios cargando — el 401 solo prueba el authorizer, no las integrations) → recién presentar.
+```powershell
+cd Frontend
+npm ci
+$env:VITE_API_BASE_URL = (terraform -chdir=..\infra output -raw api_url)
+npm run build
+scp -i <ssh-key> -r dist\* ec2-user@<frontend-eip>:/var/www/grandhotel/
+ssh -i <ssh-key> ec2-user@<frontend-eip> "sudo chmod -R a+rX /var/www/grandhotel"
+```
 
-> **Costos (AWS Academy):** gasto real ≈ $7,3 de $50 al 11-oct (panel Vocareum). Encendido ≈ $0,12/hora (7 EC2 + IPs). El frontend usa una **Elastic IP** (≈$0,12/día, también en reposo) para que su URL y su CORS queden estables entre sesiones del lab. El resto de EC2 mantiene IP dinámica. `terraform destroy` al cierre libera todo, incluida la EIP. El diseño prioriza el costo marginal por sesión en lugar de un stack 24/7.
+### 5.6 Proxy Nginx de API y UIs
 
-## Credenciales y seguridad
+API Gateway apunta a la EIP del frontend. Terraform crea el Nginx estático de la
+SPA. La plantilla versionada del proxy está en
+`infra/cloud/nginx.conf.example`. Su aplicación sobre la EC2 es manual.
+Reemplazar los placeholders `<...>` por las IPs privadas y aplicar:
 
-- Las claves públicas de Entra ID (clientId, tenant) quedan definidas en `Frontend/src/utils/environment.ts`, y el issuer/audience (`AZURE_TENANT_ID`/`AZURE_AUDIENCE`) en la configuración de cada microservicio. No hay secretos comprometidos en el repositorio. La contraseña de MySQL (`root`) y los identificadores de Entra son solo para el entorno local de desarrollo.
-- `.env.example` es plantilla de los microservicios (DB, puertos, tenant, audience) y `Frontend/.env.example` la del frontend (`VITE_API_BASE_URL`). Los `.env` reales **no se suben** a Git.
-- El `.gitignore` raíz excluye `.env`, `node_modules`, `target/`, `*.log` y artefactos de compilación. `infra/.gitignore` excluye `.terraform/`, `.tfstate` y `.tfvars`.
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
 
-## Mejoras evaluadas
+Las rutas cubiertas son `/api/v1/bff`, `/api/v1/reserva`,
+`/api/v1/servicio`, `/api/v1/usuario`, `/api/v1/broker-admin` y
+`/api/v1/rabbit-admin`. Si se reemplaza la instancia frontend, se debe volver a
+aplicar. La EIP y las IPs privadas de las EC2 se mantienen en un stop/start
+normal, pero las IPs privadas pueden cambiar si se reemplazan las instancias.
 
-Opciones de evolución analizadas contra el alcance del entregable. La evaluación es deliberada (costo, beneficio y contexto) y no implica implementación:
+### 5.7 Datos iniciales
 
-| Mejora | Qué aportaría | Costo estimado | Decisión |
-|--------|---------------|----------------|----------|
-| Outbox transaccional en los productores | Entrega garantizada (at-least-once) de los eventos, incluso con el broker caído | Alto: tabla outbox, dispatcher con backoff y pruebas nuevas | Diferida — el fail-safe + confirms/returns cubren el requisito de la EV2 |
-| Versionado de eventos (`v1`) + `X-Correlation-Id` | Contratos evolutivos y trazabilidad entre servicios | Medio: productores, consumidores y pruebas | Diferida |
-| Endpoints múltiples del broker (`SPRING_RABBITMQ_ADDRESSES`) | Los clientes podrían alcanzar ambos nodos del clúster | Bajo en código, requiere publicar el puerto del segundo nodo | Diferida — ambos nodos viven en la misma EC2, sin tolerancia real adicional |
-| Bandeja de notificaciones persistente | Historial in-app con estado leído/no leído por usuario | Alto: base propia, endpoints, BFF y frontend | Fuera del alcance de la rúbrica EP2 |
-| Paginación en los `GET /list` | Contratos `Page<T>` en las búsquedas | Medio: backend, frontend y pruebas | Sin caso real con los volúmenes actuales |
-| Idempotencia en los consumidores | Proteger reprocesos ante reentregas | Medio: claves de idempotencia por consumidor | Sin efecto real hoy — los consumidores registran en logs, no persisten |
-| Flyway (migraciones versionadas) | Evolución del esquema por migraciones | Medio: migraciones por servicio y configuración | Diferida — Hibernate (`ddl-auto=update`) cubre el esquema actual |
-| CI/CD con GitHub Actions | Build, pruebas y despliegue automatizados | Medio-alto: workflows, secretos y mantenimiento | Diferida — el despliegue manual está documentado y verificado |
-| `/registro` funcional | Eliminar el último placeholder visible | Bajo: mini-página explicativa (el alta la gestiona Entra ID) | En evaluación |
+`usuario` y `servicio` cargan datos iniciales (seeds) idempotentes al iniciar:
+
+- `usuario/src/main/resources/data-mysql.sql`
+- `servicio/src/main/resources/data-mysql.sql`
+
+No se requiere SSH ni ejecutar SQL manualmente.
+
+### 5.8 URLs y consideraciones
+
+```powershell
+terraform -chdir=infra output -raw api_url
+terraform -chdir=infra output -raw frontend_public_ip
+terraform -chdir=infra output -raw rabbit_public_ip
+terraform -chdir=infra output -raw kafka_public_ip
+```
+
+- Frontend: URL HTTPS del API Gateway.
+- Frontend directo: `http://<frontend-eip>` por el puerto 80.
+- Rabbit UI estable: `http://<frontend-eip>:15672`.
+- Kafka UI estable: `http://<frontend-eip>:8080`.
+- Fallback directo: `http://<rabbit-public-ip>:15672` y
+  `http://<kafka-public-ip>:8080`.
+
+API Gateway integra contra la EIP del frontend, no contra las IPs públicas de
+Rabbit, Kafka ni de los microservicios. Un stop/start normal conserva la EIP y
+las IPs privadas. Las IPs públicas directas de todas las EC2 sin EIP pueden
+cambiar al reiniciar el laboratorio, por eso se recomiendan las URLs estables
+por la EIP.
+
+No se deben reemplazar las integraciones de API Gateway por las IPs públicas de
+Rabbit o Kafka. Si se reemplaza la instancia frontend, se debe reaplicar la
+configuración Nginx de la sección 5.6. Las URLs estables de Rabbit UI y Kafka UI
+dependen de ese proxy manual.
+
+Rabbit UI usa credenciales de laboratorio. Kafka UI no tiene autenticación. Ambas
+están publicadas por HTTP y son aceptables solo para la demo. En producción deben
+quedar en red privada, detrás de SSO/VPN y TLS.
+
+### 5.9 Reserva demo
+
+1. Abrir el frontend por la URL HTTPS del gateway.
+2. Iniciar sesión con un usuario del tenant.
+3. Crear la reserva y confirmar el pago mediante la API con un token `ADMIN`.
+4. Verificar la reserva en "Mis Reservas", el dashboard BFF y la mensajería.
+
+La UI actual es de consulta para reservas. No incluye formulario de creación ni
+confirmación de pago. Esas operaciones se realizan por API y luego se reflejan en
+la UI. Si se agrega el flujo visual, esta sección debe actualizarse.
+
+## 6. Seguridad
+
+- OAuth2/JWT con Entra ID.
+- Doble validación: API Gateway y microservicios.
+- Roles `ADMIN` y `CLIENTE`, el backend normaliza los roles a `ROLE_ADMIN` y
+  `ROLE_CLIENTE`.
+- Lecturas y mutaciones de `broker-admin` restringidas a ADMIN.
+- CORS acotado por variable.
+- `.env`, `.tfvars`, tokens y credenciales fuera de Git.
+- Rabbit de laboratorio con credenciales definidas en `.env`.
+- La contraseña real de MySQL cloud no se publica en documentación. El entorno
+  local usa `root` y `MYSQL_ROOT_PASSWORD=root`, no debe reutilizarse en cloud.
+- El usuario MySQL de laboratorio tiene privilegios amplios, en producción debe
+  aplicarse mínimo privilegio.
+
+### Superficie de red
+
+| Puerto | Alcance | Uso |
+|---|---|---|
+| `80` | público | Frontend directo por EIP |
+| `8081-8085` | público | APIs para verificación y gateway |
+| `22` | público | SSH de despliegue |
+| `15672` | público | Rabbit UI |
+| `8080` | público | Kafka UI |
+| `3306` | solo EC2 del SG | MySQL interno |
+| `5672`, `4369`, `25672` | solo EC2 del SG | Rabbit interno |
+| `9092-9094` | solo EC2 del SG | Kafka interno |
+
+En producción los puertos `8081-8085`, `22`, `15672` y `8080` deben quedar
+privados o detrás de VPN, SSO y TLS. En modo local se usan `5173`,
+`18081-18085`, `15673` y `18080`.
+
+### Consideraciones adicionales
+
+- Las rutas `GET /` y `GET /{proxy+}` del gateway son públicas para servir la SPA,
+  las rutas `/api/v1/*` conservan JWT. Las rutas `OPTIONS` son públicas para el
+  preflight del navegador.
+- Swagger de `broker-admin` está permitido sin autenticación en
+  `/v3/api-docs/**` y `/swagger-ui/**`, el puerto `8085` es público en el
+  laboratorio.
+- Kafka UI no tiene autenticación.
+- Las lecturas `GET /api/v1/reserva/list`, `/get/{id}` y `/usuario/{idUsuario}`
+  están disponibles para cualquier usuario autenticado y no comprueban que la
+  reserva pertenezca al solicitante. No usar ese contrato en producción sin
+  agregar autorización por propietario.
+- La creación de reserva acepta una cabecera opcional `Idempotency-Key`, sin esa
+  cabecera cada POST crea una reserva nueva.
+
+## 7. Mensajería
+
+### 7.1 RabbitMQ
+
+- 3 nodos cloud, 2 nodos en el compose local de demostración.
+- Colas quórum con 3 miembros en cloud. El clúster local de 2 nodos no es HA.
+- Colas de negocio: `notificaciones.queue`, `tickets.queue`,
+  `documentos.queue`.
+- DLQ por cada cola: `notificaciones.dlq`, `tickets.dlq`, `documentos.dlq`.
+- TTL de las DLQ: 24 horas.
+- Intercambiadores (exchanges): `hotel.topic` (topic), `hotel.direct` (direct) y
+  `hotel.dlx` (direct).
+- Enlaces (bindings):
+  - `hotel.topic` + `reserva.*` -> `notificaciones.queue`.
+  - `hotel.topic` + `reserva.creada` -> `tickets.queue`.
+  - `hotel.topic` + `servicio.*` -> `documentos.queue`.
+  - `hotel.direct` + `ticket.generar` -> `tickets.queue`.
+  - `hotel.dlx` + nombre de DLQ -> DLQ correspondiente.
+- Productores: `reserva` publica `reserva.creada`, `servicio` publica
+  `servicio.actualizado` directo a Rabbit. `servicio` no tiene outbox.
+- Consumidores: `broker-admin`.
+- Confirmación manual y precarga (ACK/prefetch) en 1. Un mensaje inválido va
+  directo a DLQ, un fallo recuperable se reencola una vez y, si vuelve a fallar,
+  va a DLQ.
+- Las confirmaciones y devoluciones del publicador están configuradas en
+  `reserva`. Son observabilidad y no convierten el envío en una transacción
+  atómica con el outbox.
+
+### 7.2 Kafka
+
+#### Por qué Kafka
+
+Rabbit se usa para tareas y reintentos por cola. Kafka se usa como log
+particionado, retenido y reproducible para analytics y auditoría: los eventos se
+conservan, se pueden leer con distintos grupos de consumidores (consumer group)
+y se puede recalcular su consumo sin borrar el mensaje original.
+
+#### Topología
+
+- 3 Zookeeper + 3 brokers + Kafka UI en `cn-kafka`.
+- `KAFKA_AUTO_CREATE_TOPICS_ENABLE=false`, los topics los declara
+  `broker-admin`.
+- Los 3 brokers comparten una sola EC2, no hay HA física de host.
+- Kafka UI no tiene autenticación.
+
+| Topic | Particiones | Réplica | Retención | Uso |
+|---|---:|---:|---:|---|
+| `reservas` | 3 | 3 | 7 días | Eventos `RESERVA_CREADA` |
+| `pagos` | 3 | 3 | 30 días | Eventos `PAGO_CONFIRMADO` |
+| `reservas.DLT` | 3 | 3 | 7 días | Mensajes fallidos de reservas |
+| `pagos.DLT` | 3 | 3 | 7 días | Mensajes fallidos de pagos |
+
+Todos los topics usan `cleanup.policy=delete` y `min.insync.replicas=2`.
+
+#### Productores y configuración
+
+- `reserva` es el único productor de negocio de Kafka, publica `reservas` y
+  `pagos`, `servicio` solo publica a Rabbit.
+- Serializers: `StringSerializer` para key y `JsonSerializer` para value.
+- Productor de `reserva`: `acks=all`, `retries=3`,
+  `enable.idempotence=true`, `max.block.ms=3000`.
+- Productor de `broker-admin`: `acks=all`, `retries=3`,
+  `enable.idempotence=true`, `max.block.ms=5000`.
+- La key de ambos eventos es el `reservaId`.
+
+#### Consumidores, offsets y lag
+
+- Grupos: `analytics-group` y `audit-group`.
+- Cada grupo consume `reservas` y `pagos`, no hay un grupo por topic.
+- `auto-offset-reset=earliest`, `enable-auto-commit=false` y
+  `AckMode.RECORD`.
+- Concurrencia 3 por listener, deserialización JSON tipada con
+  `ErrorHandlingDeserializer`.
+- Cada grupo tiene un consumidor lógico por topic, la deduplicación es por
+  grupo de consumidores y `eventId` en `h_broker_admin.evento_procesado`.
+- El **offset** es la posición del próximo mensaje que el grupo va a leer. El
+  **lag** es `último offset - offset consumido`, si es 0, el grupo está al día.
+- `GET /api/v1/broker-admin/kafka/summary` calcula brokers, topics, grupos,
+  lag total, reservas procesadas y pagos procesados.
+- `GET /api/v1/broker-admin/kafka/groups` y
+  `GET /api/v1/broker-admin/kafka/groups/{grupo}` listan offsets y lag.
+- Kafka UI puede mostrar `Consumer Lag N/A`, el dato calculado por el endpoint
+  `/summary` es el que se usa para la defensa.
+- No existe endpoint para resetear o modificar offsets. La administración es de
+  inspección.
+
+#### DLT y errores
+
+- `DefaultErrorHandler` con `FixedBackOff(1000 ms, 2 reintentos)`.
+- `DeadLetterPublishingRecoverer` publica en `<topic>.DLT` y conserva la
+  partición original.
+- La derivación a `reservas.DLT` fue verificada con un evento inválido controlado.
+- La retención de los topics DLT es de 7 días.
+- No hay replay automático de DLT, se inspecciona por API o Kafka UI y se
+  reprocesa de forma controlada si hace falta.
+- El outbox `AGOTADO` de `reserva` no publica automáticamente a DLT, es deuda
+  conocida.
+
+#### Administración
+
+Kafka, solo ADMIN:
+
+| Método | Ruta |
+|---|---|
+| `POST` | `/api/v1/broker-admin/kafka/topics` |
+| `GET` | `/api/v1/broker-admin/kafka/topics` |
+| `GET` | `/api/v1/broker-admin/kafka/topics/{nombre}` |
+| `PUT` | `/api/v1/broker-admin/kafka/topics/{nombre}/config` |
+| `DELETE` | `/api/v1/broker-admin/kafka/topics/{nombre}` |
+| `GET` | `/api/v1/broker-admin/kafka/groups` |
+| `GET` | `/api/v1/broker-admin/kafka/groups/{grupo}` |
+| `GET` | `/api/v1/broker-admin/kafka/summary` |
+
+Rabbit, solo ADMIN:
+
+| Método | Ruta |
+|---|---|
+| `POST` | `/api/v1/broker-admin/queues` |
+| `GET` | `/api/v1/broker-admin/queues/{nombre}` |
+| `DELETE` | `/api/v1/broker-admin/queues/{nombre}` |
+| `POST` | `/api/v1/broker-admin/queues/{nombre}/purge` |
+| `POST` | `/api/v1/broker-admin/exchanges` |
+| `DELETE` | `/api/v1/broker-admin/exchanges/{nombre}` |
+| `POST` | `/api/v1/broker-admin/bindings` |
+| `POST` | `/api/v1/broker-admin/publish` |
+
+Las rutas `/api/v1/rabbit-admin/**` son alias activo de las rutas Rabbit de
+`broker-admin`. Las colas creadas por la API de administración son classic y no
+heredan la topología de negocio ni el DLX, para el flujo real se usa la topología
+declarada al iniciar.
+
+#### Kafka UI y compose local
+
+- Kafka UI cloud: `http://<frontend-eip>:8080`, clúster `grand-hotel`.
+- Kafka UI local: `http://localhost:18080`.
+- No tiene usuario ni contraseña.
+- `infra/kafka/docker-compose.yml` levanta 3 Zookeeper, 3 brokers y Kafka UI.
+- Los brokers locales escuchan en `9092`, `9093` y `9094`.
+- `KAFKA_AUTO_CREATE_TOPICS_ENABLE=false`, `broker-admin` crea los topics.
+
+### 7.3 Outbox y garantías
+
+- Solo `reserva` tiene outbox transaccional. `RESERVA_CREADA` publica a Rabbit y
+  Kafka, `PAGO_CONFIRMADO` publica solo a Kafka.
+- El outbox reintenta hasta 10 veces con espera progresiva (backoff), al agotarse queda `AGOTADO`.
+- `servicio` publica directo a Rabbit y captura la excepción, si Rabbit falla, el
+  evento de servicio se pierde.
+- La garantía es **al menos una vez** (`at-least-once`) con deduplicación
+  persistente por grupo de consumidores y cola en `h_broker_admin.evento_procesado`.
+- La idempotencia HTTP de reserva es opcional: solo se aplica si el cliente envía
+  `Idempotency-Key`. El pago es idempotente por estado.
+- Si Rabbit o Kafka cae, el outbox de `reserva` mantiene el evento pendiente y lo
+  publica al recuperar. Si Rabbit tiene éxito y Kafka falla, el reintento puede
+  republicar Rabbit, la deduplicación evita el doble efecto.
+
+## 8. Pruebas
+
+```powershell
+cd usuario
+.\mvnw.cmd test
+cd ..\reserva
+.\mvnw.cmd test
+cd ..\servicio
+.\mvnw.cmd test
+cd ..\bff
+mvn test
+cd ..\broker-admin
+mvn test
+```
+
+Resultados de referencia:
+
+- Backend: **228 tests**, 0 fallos, 1 omitido (`KafkaAdminServiceTest`).
+- Frontend: **65 tests**, 0 fallos.
+- Playwright local: **17 tests**, 0 fallos.
+- Playwright en CI: **9 tests**, las 8 pruebas `@visual` se excluyen con
+  `test:e2e:ci`.
+- Cobertura backend: 81.46% líneas, 81.12% ramas.
+- Cobertura frontend: 88.99% líneas, 80.45% ramas.
+- Carga GET 5 VUs: 273/273 OK, p95 637 ms.
+- Matriz de errores actual: 401, 400, 404, 403, 502 y 504. El 503 aparece en
+  resultados históricos, no en la matriz vigente.
+
+```powershell
+cd Frontend
+npm test
+npm run test:coverage
+npm run test:e2e
+npm run lint
+$env:VITE_API_BASE_URL = "https://<api-id>.execute-api.us-east-1.amazonaws.com"
+npm run build
+```
+
+Requisitos y alcance de las pruebas:
+
+- `npm run build` exige `VITE_API_BASE_URL`, sin esa variable Vite falla.
+- `npm run test:e2e` requiere los navegadores de Playwright
+  (`npx playwright install chromium`).
+- Las pruebas de integración de Rabbit esperan un broker en
+  `localhost:5680` con usuario `hotel`, si no está disponible, se omiten.
+- CI no levanta Rabbit ni Kafka. Los 228 tests y la cobertura son resultados
+  locales, CI ejecuta tests unitarios, frontend, E2E no visual y Terraform.
+- Los resultados de carga y de matriz de errores son locales y no se reproducen
+  desde un clon limpio sin las herramientas internas de carga.
+
+## 9. Operación y fallos
+
+- Rabbit cloud con un nodo caído: la operación continúa con 2 de 3 nodos.
+- Rabbit local de 2 nodos: no es HA, no se debe usar para demostrar tolerancia a
+  fallos.
+- En el laboratorio, `rabbitmqctl list_queues` puede agotar el tiempo de espera
+  del CLI. La API de `broker-admin` reporta las 6 colas y los consumidores activos.
+- Kafka con brokers caídos: el outbox de `reserva` mantiene el evento y publica
+  al recuperar. `servicio` no tiene outbox y puede perder su evento.
+- Servicio caído: el proxy frontal devuelve un error 5xx (`502`, `503` o `504`
+  según el punto exacto de la falla). No se debe interpretar como éxito.
+- BFF mantiene degradación parcial si un dominio falla.
+- MySQL detenido: las APIs dependientes fallan de forma controlada y se
+  recuperan.
+- Si se detiene `cn-kafka`, caen Kafka, Kafka UI y Rabbit3. Rabbit queda con 2 de
+  3 nodos y Kafka no está disponible.
+- Si se detiene `cn-rabbit` o `cn-rabbit2`, Rabbit queda con 2 de 3 nodos y Kafka
+  sigue operativo.
+
+El laboratorio AWS Academy detiene las EC2 al agotar su ventana de uso de 4
+horas. Al volver, verificar que las 9 estén `running`, que el frontend tenga la
+EIP y que la configuración Nginx siga aplicada. Un stop/start normal conserva
+EIP, IPs privadas y configuración EIP/Nginx. Un reemplazo de instancia puede
+cambiar IPs privadas o perder la configuración Nginx manual y requiere reaplicar
+la sección 5.6. No ejecutar `terraform destroy` sin autorización.
+
+Los tokens de Entra expiran. Antes de una demo se deben regenerar el token
+`ADMIN` y el token `CLIENTE`, no se almacenan en el repositorio.
+
+## 10. Deuda conocida
+
+- Flyway: migraciones versionadas.
+- Outbox `AGOTADO` hacia DLT.
+- p95 objetivo de 500 ms, no es un requisito funcional.
+- EC2 dedicada para Rabbit3.
+- Nginx de proxy: plantilla versionada y aplicación manual, un `terraform apply`
+  limpio no reproduce la API por EIP.
+- Kafka UI sin autenticación y Swagger de broker-admin público.
+- Sin endpoint de reset de offsets.
+- Una sola zona de disponibilidad, sin ALB/ASG, sin réplica MySQL y con Kafka en
+  una sola EC2.
+
+## 11. Contrato de eventos
+
+El contrato compartido está en `contracts/kafka-eventos.properties`. Los eventos
+de reserva y pago usan DTO tipados y serialización JSON.
+
+Estructura del mensaje (envelope):
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `eventId` | String | UUID del evento |
+| `eventType` | String | `RESERVA_CREADA` o `PAGO_CONFIRMADO` |
+| `occurredAt` | String | Marca de tiempo (timestamp) ISO-8601 |
+| `version` | int | versión del contrato, actualmente `1` |
+
+`ReservaEvent`: `reservaId`, `idUsuario`, `fechaReserva`, `fechaTermino`,
+`tipoReserva`, `cantidadPersonas`, `valorFinal`, `estadoPago`,
+`referenciaPago`.
+
+`PagoEvent`: `pagoId`, `reservaId`, `idUsuario`, `monto`, `metodoPago`,
+`estadoPago`.
+
+La clave (key) de Kafka es el `reservaId`. Los eventos de reserva se publican en
+`reservas` y los de pago en `pagos`, los fallos de consumo se derivan a
+`reservas.DLT` o `pagos.DLT`.
+
+## 12. Planificación
+
+- Tablero: <https://trello.com/b/dxFdQOfV/grand-hotel>.
+- Nombre: `Grand Hotel`.
+- El tablero es público de solo lectura. La edición requiere ser miembro
+  autorizado del board.

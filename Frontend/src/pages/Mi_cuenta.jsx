@@ -25,47 +25,54 @@ function Mi_cuenta() {
 
     if (!isAuthenticated) {
         return (
-            <>
-                <h1>Mi cuenta</h1>
-                <p>Debes iniciar sesión para ver tu cuenta.</p>
-            </>
+            <section className="gh-page">
+                <header className="gh-page-head">
+                    <div><p className="gh-eyebrow">Perfil</p><h1>Mi cuenta</h1></div>
+                </header>
+                <p className="gh-empty">Debes iniciar sesión para ver tu cuenta.</p>
+            </section>
         )
     }
 
     return (
-        <>
-            <h1>Mi cuenta</h1>
-            <article className="mt-3" style={{ maxWidth: '480px' }}>
-                <header>
-                    <h2 className="h5">{claims.name || account?.name || account?.username}</h2>
-                </header>
-                <dl className="row mb-0">
-                    <dt className="col-sm-4">Correo</dt>
-                    <dd className="col-sm-8">{account?.username}</dd>
-                    <dt className="col-sm-4">Rol</dt>
-                    <dd className="col-sm-8">{roles.length > 0 ? roles.join(', ') : '(sin rol)'}</dd>
-                    <dt className="col-sm-4">Scopes</dt>
-                    <dd className="col-sm-8">{scopes.length > 0 ? scopes.join(', ') : '(sin scopes)'}</dd>
-                </dl>
-            </article>
-            <article className="mt-3" style={{ maxWidth: '480px' }}>
-                <header>
-                    <h2 className="h5">Resumen</h2>
-                </header>
-                {errorDashboard && <p className="text-danger">{errorDashboard}</p>}
-                {!errorDashboard && !dashboard && <p>Cargando resumen...</p>}
-                {dashboard && (
-                    <dl className="row mb-0">
-                        <dt className="col-sm-4">Usuario</dt>
-                        <dd className="col-sm-8">{textoUsuario(dashboard.usuario)}</dd>
-                        <dt className="col-sm-4">Reservas</dt>
-                        <dd className="col-sm-8">{textoLista(dashboard.reservas, 'reservas')}</dd>
-                        <dt className="col-sm-4">Servicios en catálogo</dt>
-                        <dd className="col-sm-8">{textoLista(dashboard.servicios, 'servicios')}</dd>
-                    </dl>
-                )}
-            </article>
-        </>
+        <section className="gh-page">
+            <header className="gh-page-head">
+                <div>
+                    <p className="gh-eyebrow">Perfil</p>
+                    <h1>Mi cuenta</h1>
+                    <p>Su identidad y el resumen de su actividad.</p>
+                </div>
+                <span className="gh-user-pill" style={{ color: 'var(--gh-ink)', borderColor: 'var(--gh-line)' }}>
+                    {roles[0] || 'Huésped'}
+                </span>
+            </header>
+
+            <div className="gh-profile-grid">
+                <article className="gh-card">
+                    <span className="gh-tag">Identidad</span>
+                    <h2>{claims.name || account?.name || account?.username}</h2>
+                    <div className="gh-detail-list">
+                        <div className="gh-detail-row"><span>Correo</span><strong>{account?.username}</strong></div>
+                        <div className="gh-detail-row"><span>Rol</span><strong>{roles.length > 0 ? roles.join(', ') : '(sin rol)'}</strong></div>
+                        <div className="gh-detail-row"><span>Scopes</span><strong>{scopes.length > 0 ? scopes.join(', ') : '(sin scopes)'}</strong></div>
+                    </div>
+                </article>
+
+                <article className="gh-card">
+                    <span className="gh-tag">Resumen</span>
+                    <h2>Su actividad</h2>
+                    {errorDashboard && <p className="gh-error-text">{errorDashboard}</p>}
+                    {!errorDashboard && !dashboard && <p>Cargando resumen...</p>}
+                    {dashboard && (
+                        <div className="gh-detail-list">
+                            <div className="gh-detail-row"><span>Usuario</span><strong>{textoUsuario(dashboard.usuario)}</strong></div>
+                            <div className="gh-detail-row"><span>Reservas</span><strong>{textoLista(dashboard.reservas, 'reservas')}</strong></div>
+                            <div className="gh-detail-row"><span>Servicios en catálogo</span><strong>{textoLista(dashboard.servicios, 'servicios')}</strong></div>
+                        </div>
+                    )}
+                </article>
+            </div>
+        </section>
     )
 }
 

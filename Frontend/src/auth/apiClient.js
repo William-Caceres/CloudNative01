@@ -5,6 +5,7 @@ import { getAccessToken } from './authUtils'
 
 const apiClient = axios.create({
     baseURL: `${environment.apiBaseUrl}/api/v1/usuario`,
+    timeout: 15000,
 })
 
 apiClient.interceptors.request.use(async (config) => {

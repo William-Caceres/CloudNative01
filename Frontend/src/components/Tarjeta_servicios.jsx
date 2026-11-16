@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { obtenerServicio, eliminarServicio } from '../services/servicioService'
 import { useNavigate } from 'react-router-dom'
 import Modificar_servicios from './Modificar_servicios'
+import { formatearPrecio } from '../utils/format'
 
 function Tarjeta_servicios({ servicio: inicial, admin }) {
 
@@ -34,7 +35,6 @@ function Tarjeta_servicios({ servicio: inicial, admin }) {
         }
     }
 
-    // El dato ya viene en la lista, solo se recarga al cerrar el modal de modificacion
     useEffect(()=>{
         if (!recargar) return
         const cargarServicio = async() => {
@@ -54,28 +54,26 @@ function Tarjeta_servicios({ servicio: inicial, admin }) {
         if (!abierto) setRecargar(true)
     }
 
+    if (!show) return null
+
     return(
         <>
-        {show && (
-        <article className="col-xl-3 col-lg-4 col-md-6 col-sm-12 col-xs-12">
-            <section className="div_style p-4">
-                <h3>{servicio.nombre}</h3>
-                <p>{servicio.descripcion}</p>
-                <p className="mb-0"><strong>Precio: </strong>{servicio.precio}</p>
-                <p className="mb-1"><strong>Capacidad: </strong>{servicio.capacidad} persona(s)</p>
-                <button className="mt-3" onClick={setId}>Ver detalles</button>
-                {admin &&
-                    <button className="mt-3" onClick={modificar}>Modificar</button>
-                }
-                {admin &&
-                    <button className="mt-3" onClick={eliminar}>Eliminar</button>
-                }
-            </section>
+        <article className="gh-card">
+            <span className="gh-tag">{servicio.tipoServicio || 'Servicio'}</span>
+            <h2>{servicio.nombre}</h2>
+            <p>{servicio.descripcion}</p>
+            <div className="gh-price">
+                <strong>${formatearPrecio(servicio.precio)}</strong>
+                <span>CLP</span>
+            </div>
+            <p className="mt-2">Capacidad: {servicio.capacidad} persona(s)</p>
+            <div className="gh-card-actions">
+                <button className="gh-btn gh-btn-secondary gh-btn-small" onClick={setId}>Ver detalles</button>
+                {admin && <button className="gh-btn gh-btn-secondary gh-btn-small" onClick={modificar}>Modificar</button>}
+                {admin && <button className="gh-btn gh-btn-danger gh-btn-small" onClick={eliminar}>Eliminar</button>}
+            </div>
         </article>
-        )}
-        {modificando &&
-            <Modificar_servicios show={cerrarModificacion}/>
-        }
+        {modificando && <Modificar_servicios show={cerrarModificacion}/>}
         </>
     )
 }

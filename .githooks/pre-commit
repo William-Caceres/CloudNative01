@@ -1,0 +1,57 @@
+#!/bin/sh
+
+# Bloquea commits con archivos internos, ignorados o sensibles.
+blocked=""
+
+while IFS= read -r f; do
+    [ -z "$f" ] && continue
+
+    case "$f" in
+        .env.example|*/.env.example)
+            continue
+            ;;
+        .env|.env.*|*/.env|*/.env.*)
+            blocked="$blocked\n$f"
+            continue
+            ;;
+        _interno/*|internal/*|tools/*|scripts/*|capturas/*|screenshots/*|evidencias/*|artifacts/*|exports/*|logs/*|backups/*|tmp/*|temp/*)
+            blocked="$blocked\n$f"
+            continue
+            ;;
+        docs/_interno/*|docs/EP3/evidencias/*|docs/EP3_DEMO.md)
+            blocked="$blocked\n$f"
+            continue
+            ;;
+        AGENTS.md|CLAUDE.md|opencode.json|.opencode/*|.claude/*|.cursor/*|.aider*)
+            blocked="$blocked\n$f"
+            continue
+            ;;
+        *.pem|*.key|*.p12|*.pfx|*.jks|*.keystore|*.ppk|*.tfvars|*.tfstate|*.tfstate.*|*.tfplan|*.log|*.bak|*.tmp)
+            blocked="$blocked\n$f"
+            continue
+            ;;
+        id_rsa*|*/.id_rsa*|.npmrc|*/.npmrc|.pypirc|*/.pypirc|.netrc|*/.netrc|.git-credentials|*/.git-credentials)
+            blocked="$blocked\n$f"
+            continue
+            ;;
+        */target/*|target/*|*/node_modules/*|node_modules/*|*/dist/*|dist/*|*/.terraform/*|.terraform/*)
+            blocked="$blocked\n$f"
+            continue
+            ;;
+    esac
+
+    if git check-ignore -q -- "$f"; then
+        blocked="$blocked\n$f"
+    fi
+done <<EOF
+$(git diff --cached --name-only --diff-filter=ACMR)
+EOF
+
+if [ -n "$blocked" ]; then
+    echo "Commit bloqueado: hay archivos internos o sensibles:" >&2
+    printf '%b\n' "$blocked" >&2
+    echo "Mueve el archivo a _interno/ o revisa .gitignore." >&2
+    exit 1
+fi
+
+exit 0

@@ -5,10 +5,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.5"
-    }
   }
 }
 
@@ -16,12 +12,13 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# Stack EV1+EV2: 7 EC2 t2.micro.
+# Stack EV1+EV2+EV3: 9 EC2.
 #  - frontend: nginx + build React
 #  - usuario:  microservicio + MySQL (BD en la misma maquina = 1 EC2 menos)
 #  - reserva / servicio / bff: microservicio (reserva y servicio publican eventos)
-#  - cn-rabbit: cluster RabbitMQ de 2 nodos (docker compose)
-#  - cn-rabbit-admin: microservicio administrador de RabbitMQ (:8085)
+#  - cn-rabbit: nodo Rabbit 1, cn-rabbit2: nodo Rabbit 2, rabbit3 en cn-kafka
+#  - cn-broker-admin: microservicio administrador de RabbitMQ/Kafka (:8085)
+#  - cn-kafka: cluster Kafka de 3 brokers + 3 ZooKeeper + Kafka UI
 # Para probar rapido
 # NOTA: los heredocs user_data van a columna 0 a proposito (cloud-init no tolera espacios antes del shebang).
 locals {
@@ -30,6 +27,7 @@ locals {
     reserva        = { port = 8081 }
     servicio       = { port = 8082 }
     bff            = { port = 8084 }
+    "broker-admin" = { port = 8085 }
     "rabbit-admin" = { port = 8085 }
   }
   microservicios_app = {
@@ -39,19 +37,23 @@ locals {
   }
   microservicios_public_ip = merge(
     { usuario = aws_instance.usuario.public_ip },
-    { "rabbit-admin" = aws_instance.rabbit_admin.public_ip },
+    { "broker-admin" = aws_instance.broker_admin.public_ip },
+    { "rabbit-admin" = aws_instance.broker_admin.public_ip },
     { for k, v in aws_instance.microservicio : k => v.public_ip }
   )
+  kafka_bootstrap_servers = join(",", [
+    for port in range(9092, 9095) : "${aws_instance.cn_kafka.private_ip}:${port}"
+  ])
+  rabbit_addresses = join(",", [
+    "${aws_instance.cn_rabbit.private_ip}:5672",
+    "${aws_instance.cn_rabbit_node["rabbit2"].private_ip}:5672",
+    "${aws_instance.cn_kafka.private_ip}:5672"
+  ])
 }
 
-data "aws_ami" "al2023" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["al2023-ami-2023.*-x86_64"]
-  }
+variable "ami_id" {
+  description = "AMI AL2023 fija para las EC2 del laboratorio."
+  type        = string
 }
 
 # Origenes CORS extra (el frontend en EC2 se agrega en cors_configuration)
@@ -68,10 +70,31 @@ locals {
   cors_origins_env  = join(",", local.cors_origins_list)
 }
 
-# Usuario del cluster RabbitMQ de EV2 (la password la genera random_password).
 variable "rabbit_user" {
-  description = "Usuario del cluster RabbitMQ de EV2."
+  description = "Usuario del cluster RabbitMQ de laboratorio."
   default     = "hotel"
+}
+
+variable "rabbit_password" {
+  description = "Password del cluster RabbitMQ de laboratorio."
+  default     = "hotel"
+}
+
+variable "db_password" {
+  description = "Password de MySQL de laboratorio."
+  type        = string
+}
+
+variable "kafka_instance_type" {
+  description = "Tipo de instancia de la EC2 cn-kafka (permite fallback si t3.medium no esta permitido)."
+  type        = string
+  default     = "t3.medium"
+}
+
+variable "rabbit_node_instance_type" {
+  description = "Tipo de instancia de los nodos Rabbit adicionales (R2)."
+  type        = string
+  default     = "t3.micro"
 }
 
 # Tenant y audience de Entra ID (identificadores publicos de la app del curso).
@@ -84,18 +107,6 @@ variable "azure_audience" {
   description = "Audiences aceptadas por el authorizer JWT (formato crudo y api://)."
   type        = list(string)
   default     = ["46cda96c-1ab7-42af-a838-5ad46de31226", "api://46cda96c-1ab7-42af-a838-5ad46de31226"]
-}
-
-resource "random_password" "db_pass" {
-  length  = 20
-  special = false
-}
-
-# Credencial del cluster RabbitMQ de EV2: se genera sola y se recupera con
-# terraform output -raw rabbit_pass
-resource "random_password" "rabbit_pass" {
-  length  = 24
-  special = false
 }
 
 # VPC propia: 1 VPC + 1 subred publica + IGW + ruta por defecto
@@ -137,7 +148,7 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# Security Group unico para las 7 EC2. Las reglas van como recursos aparte:
+# Security Group unico para las 8 EC2. Las reglas van como recursos aparte:
 # editarlas no reemplaza el SG ni desasocia las instancias.
 resource "aws_security_group" "ec2" {
   name = "cloudnative-sg-ec2"
@@ -196,6 +207,56 @@ resource "aws_security_group_rule" "ec2_rabbit_interno" {
   description       = "RabbitMQ del cluster: solo conexion entre las EC2 del grupo"
 }
 
+resource "aws_security_group_rule" "ec2_rabbit_cluster_epmd" {
+  type              = "ingress"
+  security_group_id = aws_security_group.ec2.id
+  from_port         = 4369
+  to_port           = 4369
+  protocol          = "tcp"
+  self              = true
+  description       = "RabbitMQ epmd entre nodos del cluster"
+}
+
+resource "aws_security_group_rule" "ec2_rabbit_cluster_dist" {
+  type              = "ingress"
+  security_group_id = aws_security_group.ec2.id
+  from_port         = 25672
+  to_port           = 25672
+  protocol          = "tcp"
+  self              = true
+  description       = "RabbitMQ distribucion Erlang entre nodos del cluster"
+}
+
+resource "aws_security_group_rule" "ec2_rabbit_dashboard" {
+  type              = "ingress"
+  security_group_id = aws_security_group.ec2.id
+  from_port         = 15672
+  to_port           = 15672
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "RabbitMQ dashboard por IP publica para la demo"
+}
+
+resource "aws_security_group_rule" "ec2_kafka" {
+  type              = "ingress"
+  security_group_id = aws_security_group.ec2.id
+  from_port         = 9092
+  to_port           = 9094
+  protocol          = "tcp"
+  self              = true
+  description       = "Kafka brokers: solo conexion entre las EC2 del grupo"
+}
+
+resource "aws_security_group_rule" "ec2_kafka_ui" {
+  type              = "ingress"
+  security_group_id = aws_security_group.ec2.id
+  from_port         = 8080
+  to_port           = 8080
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "Kafka UI por IP publica para la demo"
+}
+
 resource "aws_security_group_rule" "ec2_egress" {
   type              = "egress"
   security_group_id = aws_security_group.ec2.id
@@ -207,7 +268,7 @@ resource "aws_security_group_rule" "ec2_egress" {
 
 # EC2 frontend: nginx + build React (se sube dist/ por scp)
 resource "aws_instance" "frontend" {
-  ami                         = data.aws_ami.al2023.id
+  ami                         = var.ami_id
   instance_type               = "t2.micro"
   key_name                    = aws_key_pair.ev2.key_name
   subnet_id                   = aws_subnet.public.id
@@ -279,7 +340,7 @@ resource "aws_eip_association" "frontend" {
 
 # EC2 usuario: microservicio + MySQL (los demas microservicios apuntan a su IP privada)
 resource "aws_instance" "usuario" {
-  ami                         = data.aws_ami.al2023.id
+  ami                         = var.ami_id
   instance_type               = "t2.micro"
   key_name                    = aws_key_pair.ev2.key_name
   subnet_id                   = aws_subnet.public.id
@@ -299,7 +360,7 @@ dnf install -y mysql-community-server
 systemctl enable --now mysqld
 DB_HOST='127.0.0.1'
 DB_USER='admin'
-DB_PASS='${random_password.db_pass.result}'
+DB_PASS='${var.db_password}'
 for i in $(seq 1 60); do
 mysqladmin ping --silent >/dev/null 2>&1 && break
 sleep 5
@@ -347,7 +408,7 @@ EOT
 # EC2 reserva/servicio: solo microservicio, BD en la instancia usuario
 resource "aws_instance" "microservicio" {
   for_each                    = local.microservicios_app
-  ami                         = data.aws_ami.al2023.id
+  ami                         = var.ami_id
   instance_type               = "t2.micro"
   key_name                    = aws_key_pair.ev2.key_name
   subnet_id                   = aws_subnet.public.id
@@ -363,10 +424,10 @@ mkdir -p /opt/apps
 chown ec2-user:ec2-user /opt/apps
 DB_HOST='${aws_instance.usuario.private_ip}'
 DB_USER='admin'
-DB_PASS='${random_password.db_pass.result}'
+DB_PASS='${var.db_password}'
 RABBIT_HOST='${aws_instance.cn_rabbit.private_ip}'
 RABBIT_USER='${var.rabbit_user}'
-RABBIT_PASS='${random_password.rabbit_pass.result}'
+RABBIT_PASS='${var.rabbit_password}'
 cat > /etc/systemd/system/cn-${each.key}.service <<UNIT
 [Unit]
 Description=CloudNative microservicio ${each.key}
@@ -382,11 +443,15 @@ Environment=RABBITMQ_HOST=$RABBIT_HOST
 Environment=RABBITMQ_PORT=5672
 Environment=RABBITMQ_USER=$RABBIT_USER
 Environment=RABBITMQ_PASSWORD=$RABBIT_PASS
+Environment=SPRING_RABBITMQ_ADDRESSES=${local.rabbit_addresses}
 Environment=MICROSERVICIOS_USUARIO_URL=${aws_apigatewayv2_api.http.api_endpoint}
 Environment=MICROSERVICIOS_RESERVA_URL=${aws_apigatewayv2_api.http.api_endpoint}
 Environment=MICROSERVICIOS_SERVICIO_URL=${aws_apigatewayv2_api.http.api_endpoint}
 Environment=SERVER_PORT=${each.value.port}
 Environment=CORS_ORIGINS=${local.cors_origins_env}
+%{if each.key == "reserva"}
+Environment=KAFKA_BOOTSTRAP_SERVERS=${local.kafka_bootstrap_servers}
+%{endif}
 ExecStart=/usr/bin/java -jar /opt/apps/${each.key}-0.0.1-SNAPSHOT.jar
 Restart=always
 RestartSec=5
@@ -401,17 +466,17 @@ EOT
   tags = { Name = "cn-${each.key}", Project = "CloudNative01" }
 }
 
-# Par de llaves de las 7 EC2, creado desde la clave publica versionada en el repo.
+# Par de llaves de las 9 EC2, creado desde la clave publica versionada en el repo.
 # Si el keypair ya existe: terraform import aws_key_pair.ev2 cloudnative-labs
 resource "aws_key_pair" "ev2" {
   key_name   = "cloudnative-labs"
   public_key = file("${path.module}/keys/cloudnative-labs.pub")
 }
 
-# EC2 cn-rabbit: cluster RabbitMQ de 2 nodos con docker compose (EV2).
+# EC2 cn-rabbit: nodo Rabbit 1 del cluster de 3 nodos (docker compose, EV2).
 # El compose se sube en el despliegue (infra/rabbit-cluster por scp).
 resource "aws_instance" "cn_rabbit" {
-  ami                         = data.aws_ami.al2023.id
+  ami                         = var.ami_id
   instance_type               = "t2.micro"
   key_name                    = aws_key_pair.ev2.key_name
   subnet_id                   = aws_subnet.public.id
@@ -434,9 +499,43 @@ EOT
   tags = { Name = "cn-rabbit", Project = "CloudNative01" }
 }
 
-# EC2 cn-rabbit-admin: microservicio administrador de RabbitMQ (:8085, EV2).
-resource "aws_instance" "rabbit_admin" {
-  ami                         = data.aws_ami.al2023.id
+# Nodo Rabbit adicional de R2. El tercer nodo corre en cn-kafka para evitar
+# una tercera EC2 cuando el laboratorio limita la cantidad de instancias.
+resource "aws_instance" "cn_rabbit_node" {
+  for_each                    = toset(["rabbit2"])
+  ami                         = var.ami_id
+  instance_type               = var.rabbit_node_instance_type
+  key_name                    = aws_key_pair.ev2.key_name
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.ec2.id]
+  associate_public_ip_address = true # NOSONAR: SSH/scp del despliegue desde la IP dinamica del lab.
+
+  user_data = <<-EOT
+#!/bin/bash
+exec > /var/log/cn-${each.key}-bootstrap.log 2>&1
+set -exuo pipefail
+dnf install -y docker
+systemctl enable --now docker
+usermod -aG docker ec2-user
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -sSL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+mkdir -p /home/ec2-user/rabbit-cluster
+chown ec2-user:ec2-user /home/ec2-user/rabbit-cluster
+echo "Listo: sube infra/rabbit-cluster por scp, crea .env y ejecuta docker compose up -d + ./unirse-cluster.sh"
+EOT
+
+  tags = { Name = "cn-${each.key}", Project = "CloudNative01" }
+}
+
+moved {
+  from = aws_instance.rabbit_admin
+  to   = aws_instance.broker_admin
+}
+
+# EC2 cn-broker-admin: microservicio administrador de RabbitMQ/Kafka (:8085).
+resource "aws_instance" "broker_admin" {
+  ami                         = var.ami_id
   instance_type               = "t2.micro"
   key_name                    = aws_key_pair.ev2.key_name
   subnet_id                   = aws_subnet.public.id
@@ -445,35 +544,70 @@ resource "aws_instance" "rabbit_admin" {
 
   user_data = <<-EOT
 #!/bin/bash
-exec > /var/log/cn-rabbit-admin-bootstrap.log 2>&1
+exec > /var/log/cn-broker-admin-bootstrap.log 2>&1
 set -exuo pipefail
 dnf install -y java-21-amazon-corretto-devel
 mkdir -p /opt/apps
 chown ec2-user:ec2-user /opt/apps
-cat > /etc/systemd/system/cn-rabbit-admin.service <<UNIT
+cat > /etc/systemd/system/cn-broker-admin.service <<UNIT
 [Unit]
-Description=CloudNative microservicio rabbit-admin
+Description=CloudNative microservicio broker-admin
 After=network-online.target
 [Service]
 WorkingDirectory=/opt/apps
 Environment=RABBITMQ_HOST=${aws_instance.cn_rabbit.private_ip}
 Environment=RABBITMQ_PORT=5672
 Environment=RABBITMQ_USER=${var.rabbit_user}
-Environment=RABBITMQ_PASSWORD=${random_password.rabbit_pass.result}
+Environment=RABBITMQ_PASSWORD=${var.rabbit_password}
+Environment=SPRING_RABBITMQ_ADDRESSES=${local.rabbit_addresses}
+Environment=KAFKA_BOOTSTRAP_SERVERS=${local.kafka_bootstrap_servers}
 Environment=SERVER_PORT=8085
 Environment=CORS_ORIGINS=${local.cors_origins_env}
-ExecStart=/usr/bin/java -jar /opt/apps/rabbit-admin-0.0.1-SNAPSHOT.jar
+ExecStart=/usr/bin/java -jar /opt/apps/broker-admin-0.0.1-SNAPSHOT.jar
 Restart=always
 RestartSec=5
 [Install]
 WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
-systemctl enable cn-rabbit-admin
-echo "Listo: sube /opt/apps/rabbit-admin-0.0.1-SNAPSHOT.jar por scp y ejecuta: systemctl start cn-rabbit-admin"
+systemctl enable cn-broker-admin
+echo "Listo: sube /opt/apps/broker-admin-0.0.1-SNAPSHOT.jar por scp y ejecuta: systemctl start cn-broker-admin"
 EOT
 
-  tags = { Name = "cn-rabbit-admin", Project = "CloudNative01" }
+  tags = { Name = "cn-broker-admin", Project = "CloudNative01" }
+}
+
+# EC2 cn-kafka: cluster Kafka de 3 brokers + 3 ZooKeeper + Kafka UI (EV3).
+# El compose se sube en el despliegue (infra/kafka por scp).
+resource "aws_instance" "cn_kafka" {
+  ami                         = var.ami_id
+  instance_type               = var.kafka_instance_type
+  key_name                    = aws_key_pair.ev2.key_name
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.ec2.id]
+  associate_public_ip_address = true # NOSONAR: IP publica requerida para SSH/scp desde la IP dinamica del lab y Kafka UI en 8080. Los brokers solo escuchan 9092-9094 desde el SG.
+
+  user_data = <<-EOT
+#!/bin/bash
+exec > /var/log/cn-kafka-bootstrap.log 2>&1
+set -exuo pipefail
+dnf install -y docker
+systemctl enable --now docker
+usermod -aG docker ec2-user
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -sSL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+mkdir -p /opt/kafka
+chown ec2-user:ec2-user /opt/kafka
+echo "Listo: sube infra/kafka por scp, crea .env con KAFKA_ADVERTISED_HOST=<IP privada> y ejecuta docker compose --env-file .env up -d"
+EOT
+
+  tags = { Name = "cn-kafka", Project = "CloudNative01" }
 }
 
 # API Gateway HTTP API v2 con JWT authorizer (Entra)
@@ -509,7 +643,8 @@ resource "aws_apigatewayv2_integration" "http" {
   api_id             = aws_apigatewayv2_api.http.id
   integration_type   = "HTTP_PROXY"
   integration_method = "ANY"
-  integration_uri    = "http://${local.microservicios_public_ip[each.key]}:${each.value.port}/api/v1/${each.key}/{proxy}"
+  # API Gateway usa la EIP estable del frontend; Nginx hace proxy a las IPs privadas.
+  integration_uri = "http://${aws_eip.frontend.public_ip}/api/v1/${each.key}/{proxy}"
 }
 
 resource "aws_apigatewayv2_route" "http" {
@@ -614,20 +749,36 @@ output "rabbit_public_ip" {
   value = aws_instance.cn_rabbit.public_ip
 }
 
+output "rabbit_nodes_public_ip" {
+  value = { for k, v in aws_instance.cn_rabbit_node : k => v.public_ip }
+}
+
+output "rabbit_nodes_private_ip" {
+  value = { for k, v in aws_instance.cn_rabbit_node : k => v.private_ip }
+}
+
+output "rabbit_addresses" {
+  value = local.rabbit_addresses
+}
+
+output "broker_admin_public_ip" {
+  value = aws_instance.broker_admin.public_ip
+}
+
 output "rabbit_admin_public_ip" {
-  value = aws_instance.rabbit_admin.public_ip
+  value = aws_instance.broker_admin.public_ip
+}
+
+output "kafka_private_ip" {
+  value = aws_instance.cn_kafka.private_ip
+}
+
+output "kafka_public_ip" {
+  value = aws_instance.cn_kafka.public_ip
 }
 
 output "api_url" {
   value = aws_apigatewayv2_api.http.api_endpoint
 }
 
-output "db_password" {
-  value     = random_password.db_pass.result
-  sensitive = true
-}
 
-output "rabbit_pass" {
-  value     = random_password.rabbit_pass.result
-  sensitive = true
-}

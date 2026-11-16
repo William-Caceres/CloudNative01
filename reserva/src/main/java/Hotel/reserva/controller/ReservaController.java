@@ -1,6 +1,8 @@
 package Hotel.reserva.controller;
 
+import Hotel.reserva.dto.PagoRequest;
 import Hotel.reserva.entity.Reserva;
+import Hotel.reserva.service.OutboxService;
 import Hotel.reserva.service.ReservaService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,10 +25,13 @@ public class ReservaController {
 
     private final ReservaService ser;
 
+    private final OutboxService outbox;
+
     @PostMapping("/post")
     @PreAuthorize("hasRole('ADMIN')")
-    public Reserva rc_guardar(@Valid @RequestBody Reserva req){
-        return ser.r_guardar(req);
+    public Reserva rc_guardar(@RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody Reserva req){
+        return ser.r_guardar(req, idempotencyKey);
     }
 
     @GetMapping("/get/{id}")
@@ -38,6 +44,12 @@ public class ReservaController {
         return ser.r_listar();
     }
 
+    @GetMapping("/outbox/resumen")
+    @PreAuthorize("hasRole('ADMIN')")
+    public java.util.Map<String, Object> rc_outbox() {
+        return outbox.resumen();
+    }
+
     @GetMapping("/usuario/{idUsuario}")
     public List<Reserva> rc_listar_por_usuario(@PathVariable Integer idUsuario){
         return ser.r_listar_por_usuario(idUsuario);
@@ -47,6 +59,12 @@ public class ReservaController {
     @PreAuthorize("hasRole('ADMIN')")
     public Reserva rc_modificar(@PathVariable Integer id, @Valid @RequestBody Reserva req){
         return ser.r_modificar(id, req);
+    }
+
+    @PutMapping("/{id}/pago")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Reserva rc_confirmarPago(@PathVariable Integer id, @Valid @RequestBody PagoRequest req){
+        return ser.r_confirmarPago(id, req);
     }
 
     @DeleteMapping("/delete/{id}")

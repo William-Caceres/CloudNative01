@@ -60,59 +60,58 @@ function Modificar_servicios({ show }) {
     },[])
 
     return(
-        <section className="card_black_bg">
-            <form className="div_style form_card_size" onSubmit={(e)=>{e.preventDefault(); guardarModificacion()}}>
-                <label className="mb-1 mt-3 d-block" htmlFor="n_habitacion">ID de servicio o habitación:</label>
-                <input
-                    id="n_habitacion" className="stuff_mwidth" type="number" required
-                    value={n_habitacion}
-                    onChange={(e)=>setN_habitacion(e.target.value)}
-                />
-                <label className="mb-1 mt-3 d-block" htmlFor="t_servicio">Tipo de servicio:</label>
-                <select id="t_servicio" className="stuff_mwidth" value={t_servicio} onChange={(e)=>setT_servicio(e.target.value)}>
-                    <option value="" disabled>Seleccione tipo de servicio</option>
-                    <option value="habitacion">Habitación</option>
-                    <option value="comida">Comida</option>
-                    <option value="recreativo">Recreativo</option>
-                </select>
-                <label className="mb-1 mt-3 d-block" htmlFor="nivel_s">Nivel del servicio:</label>
-                <select id="nivel_s" className="stuff_mwidth" value={nivel_s} onChange={(e)=>setNivel_s(e.target.value)}>
-                    <option value="" disabled>Seleccione nivel de servicio</option>
-                    <option value="invitado">Invitado</option>
-                    <option value="miembro">Miembro</option>
-                    <option value="VIP">VIP</option>
-                </select>
-                <label className="mb-1 mt-3 d-block" htmlFor="nombre">Nombre:</label>
-                <input
-                    id="nombre" className="stuff_mwidth" type="text" required
-                    maxLength={50} value={nombre}
-                    onChange={(e)=>setNombre(e.target.value)}
-                />
-                <label className="mb-1 mt-3 d-block" htmlFor="desc">Descripción:</label>
-                <textarea
-                    id="desc" className="stuff_mwidth" required
-                    maxLength={150} value={desc}
-                    onChange={(e)=>setDesc(e.target.value)}
-                />
-                <label className="mb-1 mt-3 d-block" htmlFor="precio">Precio:</label>
-                <input
-                    id="precio" className="stuff_mwidth" type="number" required
-                    value={precio}
-                    onChange={(e)=>setPrecio(e.target.value)}
-                />
-                <label className="mb-1 mt-3 d-block" htmlFor="capacidad">Capacidad servicio:</label>
-                <input
-                    id="capacidad" className="stuff_mwidth" type="number" required
-                    value={capacidad}
-                    onChange={(e)=>setCapacidad(e.target.value)}
-                />
-                <label className="mb-1 mt-3 d-block" htmlFor="disponible">¿Está disponible?</label>
-                <input
-                    id="disponible" type="checkbox" checked={disponible}
-                    onChange={(e)=>setDisponible(e.target.checked)}
-                />
-                <button type="submit">Modificar</button>
-                <button type="button" onClick={cerrarFormulario}>Cerrar</button>
+        <section className="gh-modal-backdrop">
+            <form className="gh-modal" onSubmit={(e)=>{e.preventDefault(); guardarModificacion()}}>
+                <p className="gh-eyebrow">Editar servicio</p>
+                <h2>Modificar servicio</h2>
+                <div className="gh-field">
+                    <label htmlFor="n_habitacion">ID de servicio o habitación:</label>
+                    <input id="n_habitacion" type="number" required value={n_habitacion} onChange={(e)=>setN_habitacion(e.target.value)} />
+                </div>
+                <div className="gh-field">
+                    <label htmlFor="t_servicio">Tipo de servicio:</label>
+                    <select id="t_servicio" value={t_servicio} onChange={(e)=>setT_servicio(e.target.value)}>
+                        <option value="" disabled>Seleccione tipo de servicio</option>
+                        <option value="habitacion">Habitación</option>
+                        <option value="comida">Comida</option>
+                        <option value="recreativo">Recreativo</option>
+                    </select>
+                </div>
+                <div className="gh-field">
+                    <label htmlFor="nivel_s">Nivel del servicio:</label>
+                    <select id="nivel_s" value={nivel_s} onChange={(e)=>setNivel_s(e.target.value)}>
+                        <option value="" disabled>Seleccione nivel de servicio</option>
+                        <option value="invitado">Invitado</option>
+                        <option value="miembro">Miembro</option>
+                        <option value="VIP">VIP</option>
+                    </select>
+                </div>
+                <div className="gh-field">
+                    <label htmlFor="nombre">Nombre:</label>
+                    <input id="nombre" type="text" required maxLength={50} value={nombre} onChange={(e)=>setNombre(e.target.value)} />
+                </div>
+                <div className="gh-field">
+                    <label htmlFor="desc">Descripción:</label>
+                    <textarea id="desc" required maxLength={150} value={desc} onChange={(e)=>setDesc(e.target.value)} />
+                </div>
+                <div className="gh-grid-tight">
+                    <div className="gh-field">
+                        <label htmlFor="precio">Precio:</label>
+                        <input id="precio" type="number" required value={precio} onChange={(e)=>setPrecio(e.target.value)} />
+                    </div>
+                    <div className="gh-field">
+                        <label htmlFor="capacidad">Capacidad servicio:</label>
+                        <input id="capacidad" type="number" required value={capacidad} onChange={(e)=>setCapacidad(e.target.value)} />
+                    </div>
+                </div>
+                <label className="gh-check">
+                    <input id="disponible" type="checkbox" checked={disponible} onChange={(e)=>setDisponible(e.target.checked)} />
+                    ¿Está disponible?
+                </label>
+                <div className="gh-form-actions">
+                    <button className="gh-btn gh-btn-primary" type="submit">Modificar</button>
+                    <button className="gh-btn gh-btn-secondary" type="button" onClick={cerrarFormulario}>Cerrar</button>
+                </div>
             </form>
         </section>
     )
