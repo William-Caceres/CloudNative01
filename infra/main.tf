@@ -12,11 +12,11 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# Stack EV1+EV2+EV3: 8 EC2.
+# Stack EV1+EV2+EV3: 9 EC2.
 #  - frontend: nginx + build React
 #  - usuario:  microservicio + MySQL (BD en la misma maquina = 1 EC2 menos)
 #  - reserva / servicio / bff: microservicio (reserva y servicio publican eventos)
-#  - cn-rabbit: cluster RabbitMQ de 2 nodos (docker compose)
+#  - cn-rabbit: nodo Rabbit 1, cn-rabbit2: nodo Rabbit 2, rabbit3 en cn-kafka
 #  - cn-broker-admin: microservicio administrador de RabbitMQ/Kafka (:8085)
 #  - cn-kafka: cluster Kafka de 3 brokers + 3 ZooKeeper + Kafka UI
 # Para probar rapido
@@ -466,14 +466,14 @@ EOT
   tags = { Name = "cn-${each.key}", Project = "CloudNative01" }
 }
 
-# Par de llaves de las 7 EC2, creado desde la clave publica versionada en el repo.
+# Par de llaves de las 9 EC2, creado desde la clave publica versionada en el repo.
 # Si el keypair ya existe: terraform import aws_key_pair.ev2 cloudnative-labs
 resource "aws_key_pair" "ev2" {
   key_name   = "cloudnative-labs"
   public_key = file("${path.module}/keys/cloudnative-labs.pub")
 }
 
-# EC2 cn-rabbit: cluster RabbitMQ de 2 nodos con docker compose (EV2).
+# EC2 cn-rabbit: nodo Rabbit 1 del cluster de 3 nodos (docker compose, EV2).
 # El compose se sube en el despliegue (infra/rabbit-cluster por scp).
 resource "aws_instance" "cn_rabbit" {
   ami                         = var.ami_id
